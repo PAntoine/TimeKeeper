@@ -84,6 +84,36 @@ function! TimeKeeper_StartTracking()
 	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
 endfunction
 "																			}}}
+" FUNCTION: TimeKeeper_GetCurrentJobString() 								{{{
+"  
+" This function will return the current job string and the time that the current
+" job has taken so far.
+"
+" vars:
+"      none.
+" returns:
+"      string = "job:<project>.<job>#hhh:mm"
+"
+function! TimeKeeper_GetCurrentJobString()
+	
+	let el_time_min = s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time
+
+	" in days?
+	if el_time_min > 1440
+		let time_str = '' . (el_time_min / 1440) . "days"
+	
+	" in hours
+	elseif el_time_min > 60
+		let time_str = '' . (el_time_min / 60) . ':' (el_time_min % 60) . "hrs"
+	
+	else
+		let time_str = '' . el_time_min . 'mins'
+	endif
+	
+	return "job:" . g:TimeKeeper_default_project . '.' . g:TimeKeeper_default_job . '#' . time_str
+
+endfunction
+"																			}}}
 " INTERNAL FUNCTIONS
 " FUNCTION: s:TimeKeeper_LoadTimeSheet(database_file)  						{{{
 "
@@ -125,11 +155,12 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	if !has_key(s:TimeKeeper_project_list[a:project_name].job,a:job_name)
 
 		let s:TimeKeeper_project_list[a:project_name].job[a:job_name] = {'total_time':0, 'job_start': localtime(), 'time_last_session': 0}
-		echomsg "new"
+		echomsg "new exists" . localtime() . " the time in job start " . s:TimeKeeper_project_list[a:project_name].job['default'].total_time
 
 	else
 		" Ok, we have an existing project and job, now update the two values
 		echomsg "exists" . localtime() . " the time in job start " . s:TimeKeeper_project_list[a:project_name].job['default'].job_start
+		echomsg "exists" . localtime() . " the time in job start " . s:TimeKeeper_project_list[a:project_name].job['default'].total_time
 	endif
 endfunction
 "																			}}}
@@ -147,16 +178,17 @@ function! s:TimeKeeper_UserStartedTyping()
 	" Is this the first time since the user stopped typing?
 	" Assume if old_time - current time is greater than one updatetime period that the user has typed something 
 	" since then, so reset the count down clock till then.
-	if (localtime() - s:user_stopped_typing) > s:TimeKeeperAwayTime
+	if (localtime() - s:user_stopped_typing) > 10
 		" add the time to the current job
 		let s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time += (s:user_stopped_typing - s:user_started_typing)
 
-		echomsg "running total" . s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time
+		echomsg "running total" . s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time . "dur " . (s:user_stopped_typing - s:user_started_typing)
 
 		" update the started typing time
 		let s:user_started_typing = localtime()
+		let s:user_stopped_typing = localtime()
 	else
-		echomsg "current running time: " . s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time . "not added: " . (s:user_stopped_typing - s:user_started_typing)
+		echomsg "current running time: " . s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time . " not added: " . (s:user_stopped_typing - s:user_started_typing)
 	endif
 
 	" remove the events as these slow down the editor
