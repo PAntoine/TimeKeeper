@@ -40,7 +40,7 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 	endif
 
 	if !exists("g:TimeKeeperUseGitProjectBranch")
-		let g:TimeKeeperUseGitProjectBranch = true		" use the Git repository as the project name, and the branch as the job
+		let g:TimeKeeperUseGitProjectBranch = 1			" use the Git repository as the project name, and the branch as the job
 	endif
 
 	" internal data structures for holding the projects
@@ -53,7 +53,7 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 	let s:user_stopped_typing = 0
 	let s:user_started_typing = localtime()
 
-	augroup TimeKeepr						" Create the group to hold all the events.
+	augroup TimeKeeper						" Create the group to hold all the events.
 
 " PUBLIC FUNCTIONS
 " FUNCTION: TimeKeeper_StopTracking() 						 				{{{
@@ -119,7 +119,95 @@ function! TimeKeeper_GetCurrentJobString()
 
 endfunction
 "																			}}}
+" FUNCTION: TimeKeeper_SaveTimeSheet(timesheet_file)  						{{{
+"
+" This function will save the timesheet to the given file.
+"
+" The format of the time sheet is a basic comma separated file that has the following
+" format:
+" 
+"      project, job, start_time, total_time
+"
+" Not all times are seconds from the start of the unix epoc.
+"
+" vars:
+"	timesheet	The file to open as a timesheet
+"
+" returns:
+"	1 - If the database could be loaded.
+"	0 - If the database failed to load.
+"
+function! TimeKeeper_SaveTimeSheet(timesheet)
+	let result = 0
+
+	if g:developing || filewritable(a:timesheet)
+		echomsg "in the write"
+		let output = []
+
+		" Ok, lets build the output List of lists that need to be written to the file.
+		for project_name in keys(s:project_list)
+			echomsg "project " . project_name
+
+			for job_name in keys(s:project_list[project_name].job)
+				let line = project_name . ',' . job_name . ',' . 
+					\ s:project_list[project_name].job[job_name].start_time . ',' . s:project_list[project_name].job[job_name].total_time
+				add(output,line)
+			endfor
+		endfor
+		
+		" write the result to a file
+		writefile(outout,timesheet)
+	endif
+endfunction
+"																			}}}
 " INTERNAL FUNCTIONS
+" FUNCTION: s:TimeKeeper_UpdateJob(project_name,job_name,time)				{{{
+"
+" This function will update a job with the time that has elapsed.
+" 
+" vars:
+"	project_name	The name of the project.
+"	job_name		The name of the job.
+"	time			The name of the time.
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_UpdateJob(project_name, job_name, time)
+	let job = TimeKeeper_AddJob(project_name,job_name)
+	
+	let job.total_time += time
+	let s:project_list[project_name].total_time += time
+
+endfunction
+" FUNCTION: s:TimeKeeper_ImportTimesheet(values)  					{{{
+"
+" This function will import a job into the timesheet dictionary.
+" 
+" format:
+" 
+"      values = [project, job, start_time, total_time]
+"
+" Not all times are seconds from the start of the unix epoc.
+"
+" vars:
+"	timesheet	The file to open as a timesheet
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_ImportTimeSheet(values)
+	if len(values) == 4
+		" set the job values
+		let job = TimeKeeper_AddJob(values[0],values[1]);
+		let job.start_time = values[2]
+		let job.total_time = values[3]
+
+		"set the project totals
+		let s:project_list[values[0]].total_time += values[3]
+		let s:project_list[values[1]].num_jobs	 += 1
+	endif
+endfunction
+"																			}}}
 " FUNCTION: s:TimeKeeper_LoadTimeSheet(timesheet_file)  					{{{
 "
 " This function will load the timesheet that is given. If the timesheet file given
@@ -128,7 +216,7 @@ endfunction
 " The format of the time sheet is a basic comma separated file that has the following
 " format:
 " 
-"      project, job, start_time, total_time, time_last_session 
+"      project, job, start_time, total_time
 "
 " Not all times are seconds from the start of the unix epoc.
 "
@@ -153,6 +241,9 @@ function! s:TimeKeeper_LoadTimeSheet(timesheet)
 			while index < len(timesheet_data)
 				let line_str = timesheet_data[index]
 				let values = split(line_str,',',1)
+
+				"Should now have a list of the items in the line
+				call TimeKeeper_ImportJob(values)
 			endwhile
 		endif
 	endif
@@ -171,7 +262,6 @@ endfunction
 " 	job_name		This is the job to create.
 "
 function! s:TimeKeeper_AddJob(project_name,job_name)
-	
 	" check to see if it is a new project
 	if !has_key(s:project_list,a:project_name)
 		let s:project_list[a:project_name] = {'total_time':0, 'num_jobs': 1, 'job': {} }
@@ -180,14 +270,16 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	" check to see if it is a new job that we are dealing with
 	if !has_key(s:project_list[a:project_name].job,a:job_name)
 
-		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'job_start': localtime(), 'time_last_session': 0}
+		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime() }
 		echomsg "new exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job['default'].total_time
 
 	else
 		" Ok, we have an existing project and job, now update the two values
-		echomsg "exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job['default'].job_start
+		echomsg "exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job['default'].start_time
 		echomsg "exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job['default'].total_time
 	endif
+
+	return s:project_list[a:project_name].job[a:job_name]
 endfunction
 "																			}}}
 " FUNCTION: s:TimeKeeper_FindTimeSheet()			 						{{{
