@@ -10,7 +10,7 @@
 "			
 "			The timesheet data is stored in a comma separated format, so that
 "           it is easy to use and import into different tools. It will stored
-"           by default in the $(HOME)/timesheet.tst.
+"           by default in the $(HOME)/timesheet.tmk
 "
 "   author: Peter Antoine
 "     date: 16/11/2012 18:05:21
@@ -26,22 +26,27 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
+	" global settings
 	if !exists("g:TimeKeeperAwayTime")
-		let s:TimeKeeperAwayTime = 360    	" 5ive minutes and then assume that the time was not working time.
+		let s:TimeKeeperAwayTime = 360    				" 5ive minutes and then assume that the time was not working time.
 	endif
 
-	if !exists("g:TimeKeeper_default_project")
-		let g:TimeKeeper_default_project = 'default'
+	if !exists("g:TimeKeeperDefaultProject")
+		let g:TimeKeeperDefaultProject = 'default'		" the name of the default/current project
 	endif
 
-	if !exists("g:TimeKeeper_default_job")
-		let g:TimeKeeper_default_job = 'default'
+	if !exists("g:TimeKeeperDefaultJob")
+		let g:TimeKeeperDefaultJob = 'default'			" the name of the default/current job
 	endif
 
-	let s:current_project = g:TimeKeeper_default_project
-	let s:current_job = g:TimeKeeper_default_job
+	if !exists("g:TimeKeeperUseGitProjectBranch")
+		let g:TimeKeeperUseGitProjectBranch = true		" use the Git repository as the project name, and the branch as the job
+	endif
 
-	let s:TimeKeeper_project_list = {}
+	" internal data structures for holding the projects
+	let s:current_project = g:TimeKeeperDefaultProject
+	let s:current_job = g:TimeKeeperDefaultJob
+	let s:project_list = {}
 
 	" script level functions to start time capture
 	let s:list_time_called = 0
@@ -96,7 +101,7 @@ endfunction
 "
 function! TimeKeeper_GetCurrentJobString()
 	
-	let el_time_min = s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time
+	let el_time_min = s:project_list[s:current_project].job[s:current_job].total_time
 
 	" in days?
 	if el_time_min > 1440
@@ -110,28 +115,49 @@ function! TimeKeeper_GetCurrentJobString()
 		let time_str = '' . el_time_min . 'mins'
 	endif
 	
-	return "job:" . g:TimeKeeper_default_project . '.' . g:TimeKeeper_default_job . '#' . time_str
+	return "job:" . g:TimeKeeperDefaultProject . '.' . g:TimeKeeperDefaultJob . '#' . time_str
 
 endfunction
 "																			}}}
 " INTERNAL FUNCTIONS
-" FUNCTION: s:TimeKeeper_LoadTimeSheet(database_file)  						{{{
+" FUNCTION: s:TimeKeeper_LoadTimeSheet(timesheet_file)  					{{{
 "
-" This function will load the timesheet that is given. If the database file given
+" This function will load the timesheet that is given. If the timesheet file given
 " does not exist it will return an error.
+"
+" The format of the time sheet is a basic comma separated file that has the following
+" format:
 " 
+"      project, job, start_time, total_time, time_last_session 
+"
+" Not all times are seconds from the start of the unix epoc.
 "
 " vars:
-"	project_name	The project that the job should be created in.
-" 	job_name		This is the job to create.
+"	timesheet	The file to open as a timesheet
 "
 " returns:
 "	1 - If the database could be loaded.
 "	0 - If the database failed to load.
 "
 function! s:TimeKeeper_LoadTimeSheet(timesheet)
+	let result = 0
 
-	return 1
+	if filewritable(a:timesheet)
+		let timesheet_data = readfile(a:timesheet)
+		
+		if timesheet_data == []
+			echomsg "timesheet file empty"
+		else
+			let result = 1
+			let index = 0
+			while index < len(timesheet_data)
+				let line_str = timesheet_data[index]
+				let values = split(line_str,',',1)
+			endwhile
+		endif
+	endif
+
+	return result
 endfunction
 "																			}}}
 " FUNCTION: TimeKeeper_AddJob(project_name,job_name)  						{{{
@@ -147,21 +173,55 @@ endfunction
 function! s:TimeKeeper_AddJob(project_name,job_name)
 	
 	" check to see if it is a new project
-	if !has_key(s:TimeKeeper_project_list,a:project_name)
-		let s:TimeKeeper_project_list[a:project_name] = {'total_time':0, 'num_jobs': 1, 'job': {} }
+	if !has_key(s:project_list,a:project_name)
+		let s:project_list[a:project_name] = {'total_time':0, 'num_jobs': 1, 'job': {} }
 	endif
 
 	" check to see if it is a new job that we are dealing with
-	if !has_key(s:TimeKeeper_project_list[a:project_name].job,a:job_name)
+	if !has_key(s:project_list[a:project_name].job,a:job_name)
 
-		let s:TimeKeeper_project_list[a:project_name].job[a:job_name] = {'total_time':0, 'job_start': localtime(), 'time_last_session': 0}
-		echomsg "new exists" . localtime() . " the time in job start " . s:TimeKeeper_project_list[a:project_name].job['default'].total_time
+		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'job_start': localtime(), 'time_last_session': 0}
+		echomsg "new exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job['default'].total_time
 
 	else
 		" Ok, we have an existing project and job, now update the two values
-		echomsg "exists" . localtime() . " the time in job start " . s:TimeKeeper_project_list[a:project_name].job['default'].job_start
-		echomsg "exists" . localtime() . " the time in job start " . s:TimeKeeper_project_list[a:project_name].job['default'].total_time
+		echomsg "exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job['default'].job_start
+		echomsg "exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job['default'].total_time
 	endif
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_FindTimeSheet()			 						{{{
+"
+" This function will find and load the timesheet that is given. If the timesheet
+" can not be found then the function will return 0.
+" 
+" If g:TimeKeeperUseLocal is true then it will look for the file in the current
+" directory. This will allow for local timesheets that can be added to the 
+" current repository. Or, but default it will use the file in the $HOME directory.
+"
+" The filename used is defined in the g:TimeKeeperFileName.
+"
+" vars:
+"	none.
+"
+" returns:
+"	1 - If the database could be loaded.
+"	0 - If the database failed to load.
+"
+function! s:TimeKeeper_FindTimeSheet()
+	let loaded = false
+
+	if (g:TimeKeeperUseLocal)
+		let loaded = s:TimeKeeperLoadFile(g:TimeKeeperFileName)
+	else
+		let loaded = s:TimeKeeperLoadFile(g:TimeKeeperFileName)
+	endif
+		
+	if (!loaded)
+		let loaded = s:TimeKeeperRequestCreate(g:TimeKeeperFileName)
+	endif
+
+	return loaded
 endfunction
 "																			}}}
 " AUTOCMD FUNCTIONS
@@ -180,15 +240,15 @@ function! s:TimeKeeper_UserStartedTyping()
 	" since then, so reset the count down clock till then.
 	if (localtime() - s:user_stopped_typing) > 10
 		" add the time to the current job
-		let s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time += (s:user_stopped_typing - s:user_started_typing)
+		let s:project_list[s:current_project].job[s:current_job].total_time += (s:user_stopped_typing - s:user_started_typing)
 
-		echomsg "running total" . s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time . "dur " . (s:user_stopped_typing - s:user_started_typing)
+		echomsg "running total" . s:project_list[s:current_project].job[s:current_job].total_time . "dur " . (s:user_stopped_typing - s:user_started_typing)
 
 		" update the started typing time
 		let s:user_started_typing = localtime()
 		let s:user_stopped_typing = localtime()
 	else
-		echomsg "current running time: " . s:TimeKeeper_project_list[s:current_project].job[s:current_job].total_time . " not added: " . (s:user_stopped_typing - s:user_started_typing)
+		echomsg "current running time: " . s:project_list[s:current_project].job[s:current_job].total_time . " not added: " . (s:user_stopped_typing - s:user_started_typing)
 	endif
 
 	" remove the events as these slow down the editor
