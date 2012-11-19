@@ -69,10 +69,11 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 	let s:user_started_typing = localtime()
 	let s:last_update_time = localtime()
 
+	" needed to hold the start dir so the :cd changes can be detected
+	let s:current_dir = getcwd()
+
 	augroup TimeKeeper						" Create the group to hold all the events.
-
-" au TimeKeeper CmdwinLeave : call TimeKeeper_CheckForCWDChange()
-
+"																			}}}
 " PUBLIC FUNCTIONS
 " FUNCTION: TimeKeeper_StopTracking() 						 				{{{
 "  
@@ -116,6 +117,10 @@ function! TimeKeeper_StartTracking()
 	au TimeKeeper CursorHoldI * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper CursorHold  * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
+
+	if g:TimeKeeperUseLocal
+		au TimeKeeper CmdwinLeave : call TimeKeeper_CheckForCWDChange()
+	endif
 endfunction
 "																			}}}
 " FUNCTION: TimeKeeper_GetCurrentJobString() 								{{{
@@ -242,7 +247,7 @@ function! s:TimeKeeper_UpdateJob(project_name, job_name, time)
 
 endfunction
 "																			}}}
-" FUNCTION: s:TimeKeeper_RequestCreate()  								{{{
+" FUNCTION: s:TimeKeeper_RequestCreate()  									{{{
 "
 " This function will ask the user before creating the timesheet file.
 " 
@@ -288,7 +293,7 @@ function! s:TimeKeeper_ImportJob(values)
 
 		"set the project totals
 		let s:project_list[a:values[0]].total_time	+= a:values[3]
-		let s:project_list[a:values[1]].num_jobs	+= 1
+		let s:project_list[a:values[0]].num_jobs	+= 1
 	endif
 endfunction
 "																			}}}
@@ -368,19 +373,13 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	if !has_key(s:project_list[a:project_name].job,a:job_name)
 
 		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime() }
-		echomsg "new exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job[a:job_name].total_time
-
-	else
-		" Ok, we have an existing project and job, now update the two values
-		echomsg "exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job[a:job_name].start_time
-		echomsg "exists" . localtime() . " the time in job start " . s:project_list[a:project_name].job[a:job_name].total_time
 	endif
 
 	return s:project_list[a:project_name].job[a:job_name]
 endfunction
 "																			}}}
 " AUTOCMD FUNCTIONS
-" FUNCTION: TimeKeeper_UserStartedTyping()									{{{
+" FUNCTION: s:TimeKeeper_UserStartedTyping()									{{{
 "
 " This function will be called when the user has started typing again. This
 " function will be called when the user moves the cursor or the editor regains
@@ -414,7 +413,7 @@ function! s:TimeKeeper_UserStartedTyping()
 	au! TimeKeeper FocusGained
 endfunction
 "																			}}}
-" FUNCTION: TimeKeeper_UserStoppedTyping()									{{{
+" FUNCTION: s:TimeKeeper_UserStoppedTyping()									{{{
 "
 " This function will be called when the user has stopped typing for the time
 " that is specified in the updatetime system variable.
@@ -438,5 +437,20 @@ function! s:TimeKeeper_UserStoppedTyping()
 	  
 endfunction
 "																			}}}
+" FUNCTION: s:TimeKeeper_CheckForCWDChange()								{{{
+"
+" This function will check that after the user has exited the ':' command if
+" the current directory has changed. If so if it is set to use local timesheets
+" rather than global ones, it will check to see if the timesheet will have
+" changed and will have to reload.
+"
+" vars:
+"	none
+"
+function! s:TimeKeeper_CheckForCWDChange()
+
+	echomsg	"after : "
+
+endfunction
 "																			}}}
 endif
