@@ -12,6 +12,47 @@
 "           it is easy to use and import into different tools. It will stored
 "           by default in the $(HOME)/timesheet.tmk
 "
+"           This plugin will also allow for the timesheet data to be added as a
+"           git note. This will allow for the time to be read by software that
+"           can read the contents of these notes.
+"
+"           The git notes are only added to the current branch for the current 
+"           job, hopefully this will reduce the problems that git-notes have with
+"           push/branching and merging.
+"
+"           The following flags effect the way that the plugin behaves:
+"
+"           config variable                  description
+"           ---------------                  ---------------------------------------
+"           g:TimeKeeperAwayTimeSec	         If the user does not type for this 
+"                                            amount of time it is assumed that they
+"                                            were away from the keyboard and the 
+"                                            time is not registered. [360]
+"           g:TimeKeeperDefaultProject		 The default project to add time to ['default']
+"           g:TimeKeeperDefaultJob           The default job to add time to ['default']
+"           g:TimeKeeperUseGitProjectBranch  If vim is in a git repository use the 
+"                                            directory name as the project name and the
+"                                            branch name as the job name. [1]
+"           g:TimeKeeperUpdateFileTimeSec    The frequency that the timesheet file
+"                                            will be updated. [60 * 15 - 15 mins]
+"           g:TimeKeeperUseLocal             If this flag is set then the timekeeper
+"                                            will create a file at the cwd of the
+"                                            editor. [0]
+"           g:TimeKeeperFileName             The filename that the timesheet will be
+"                                            saved to. [(.)timekeeper.tmk] 
+"           g:TimeKeeperUseGitNotes          If this flag is set then timekeeper will
+"                                            create a git note in the current branch
+"                                            if the editor is in a git repository. It
+"                                            will create a note with the ref of you
+"                                            guessed it "timekeeper". It will try and
+"                                            keep the entries separate as it will use
+"                                            the user.email as the key for the entries.
+"           g:TimeKeeperGitNoteUpdateTimeSec The time that the git notes will be updated
+"                                            this is not that important as it re-writes
+"                                            the note, but will cause you git history
+"                                            to get quite large if you update the notes
+"                                            too requently.
+"
 "   author: Peter Antoine
 "     date: 16/11/2012 18:05:21
 " ---------------------------------------------------------------------------------
@@ -27,8 +68,8 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 	let s:TimeKeeperPlugin = 1
 
 	" global settings
-	if !exists("g:TimeKeeperAwayTime")
-		let g:TimeKeeperAwayTime = 360    				" 5ive minutes and then assume that the time was not working time.
+	if !exists("g:TimeKeeperAwayTimeSec")
+		let g:TimeKeeperAwayTimeSec = 360    				" 5ive minutes and then assume that the time was not working time.
 	endif
 
 	if !exists("g:TimeKeeperDefaultProject")
@@ -43,8 +84,8 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 		let g:TimeKeeperUseGitProjectBranch = 1			" use the Git repository as the project name, and the branch as the job
 	endif
 
-	if !exists("g:TimeKeeperUpdateFileTime")
-		let g:TimeKeeperUpdateFileTime = 60 * 15		" time before the timesheet is written to the file
+	if !exists("g:TimeKeeperUpdateFileTimeSec")
+		let g:TimeKeeperUpdateFileTimeSec = 60 * 15		" time before the timesheet is written to the file
 	endif
 
 	if !exists("g:TimeKeeperUseLocal")
@@ -63,8 +104,8 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 		let g:TimeKeeperUseGitNotes = 1
 	endif
 
-	if !exists("g:TimeKeeperGitNoteUpdateTime")
-		let g:TimeKeeperGitNoteUpdateTime = 60 * 60		" Update the git not once an hour - This will only be updated when the timesheet is updates.
+	if !exists("g:TimeKeeperGitNoteUpdateTimeSec")
+		let g:TimeKeeperGitNoteUpdateTimeSec = 60 * 60		" Update the git not once an hour - This will only be updated when the timesheet is updates.
 	endif
 
 	" internal data structures for holding the projects
@@ -458,13 +499,13 @@ endfunction
 "
 function! s:TimeKeeper_UserStartedTyping()
 	" Do we throw away the time that the user has been away?
-	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTime
+	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTimeSec
 		" No, add the elapsed time.
 		call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
 	endif
 
 	" check to see if we need to update the timesheet file
-	if (s:last_update_time + g:TimeKeeperUpdateFileTime) < localtime()
+	if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime()
 		" Ok. we have to update the file now.
 		call TimeKeeper_SaveTimeSheet(0)
 	endif
@@ -491,7 +532,7 @@ function! s:TimeKeeper_UserStoppedTyping()
 	let s:user_stopped_typing = localtime()
 
 	" check to see if we need to update the timesheet file
-	if (s:last_update_time + g:TimeKeeperUpdateFileTime) < s:user_stopped_typing
+	if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < s:user_stopped_typing
 		" Ok. we have to update the file now.
 		call TimeKeeper_SaveTimeSheet(0)
 	endif
