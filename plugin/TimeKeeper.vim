@@ -28,7 +28,7 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 
 	" global settings
 	if !exists("g:TimeKeeperAwayTime")
-		let s:TimeKeeperAwayTime = 360    				" 5ive minutes and then assume that the time was not working time.
+		let g:TimeKeeperAwayTime = 360    				" 5ive minutes and then assume that the time was not working time.
 	endif
 
 	if !exists("g:TimeKeeperDefaultProject")
@@ -44,7 +44,7 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 	endif
 
 	if !exists("g:TimeKeeperUpdateFileTime")
-		let g:TimeKeeperUpdateFileTime = 60 * 2			" time before the timesheet is written to the file
+		let g:TimeKeeperUpdateFileTime = 60 * 15		" time before the timesheet is written to the file
 	endif
 
 	if !exists("g:TimeKeeperUseLocal")
@@ -57,6 +57,14 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 		else
 			let g:TimeKeeperFileName = $HOME . '/' . '.timekeeper.tmk'
 		endif
+	endif
+
+	if !exists("g:TimeKeeperUseGitNotes")				" If vim is in a git repository add git notes with the time periodically
+		let g:TimeKeeperUseGitNotes = 1
+	endif
+
+	if !exists("g:TimeKeeperGitNoteUpdateTime")
+		let g:TimeKeeperGitNoteUpdateTime = 60 * 60		" Update the git not once an hour - This will only be updated when the timesheet is updates.
 	endif
 
 	" internal data structures for holding the projects
@@ -86,6 +94,8 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 "
 function! TimeKeeper_StopTracking()
 	au! TimeKeeper
+	call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
+	call TimeKeeper_SaveTimeSheet(0)
 endfunction
 "																			}}}
 " FUNCTION: TimeKeeper_StartTracking()  									{{{
@@ -117,9 +127,10 @@ function! TimeKeeper_StartTracking()
 	au TimeKeeper CursorHoldI * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper CursorHold  * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
+	au TimeKeeper VimLeave    * nested call s:TimeKeeper_StopTracking()
 
-	if g:TimeKeeperUseLocal
-		au TimeKeeper CmdwinLeave : call TimeKeeper_CheckForCWDChange()
+	if g:TimeKeeperUseGitProjectBranch
+		au TimeKeeper CmdwinLeave : call s:TimeKeeper_CheckForCWDChange()
 	endif
 endfunction
 "																			}}}
@@ -131,25 +142,15 @@ endfunction
 " vars:
 "      none.
 " returns:
-"      string = "job:<project>.<job>#hhh:mm"
+"      string = "<project>.<job>#dd:hh:mm"
 "
 function! TimeKeeper_GetCurrentJobString()
 	
-	let el_time_min = s:project_list[s:current_project].job[s:current_job].total_time / 60
-
-	" in days?
-	if el_time_min > 1440
-		let time_str = '' . (el_time_min / 1440) . "days"
+	let el_time_mins  = (s:project_list[s:current_project].job[s:current_job].total_time / 60) % 60
+	let el_time_hours = (s:project_list[s:current_project].job[s:current_job].total_time / (60*60)) % 60
+	let el_time_days  = (s:project_list[s:current_project].job[s:current_job].total_time / (60*60*24))
 	
-	" in hours
-	elseif el_time_min > 60
-		let time_str = '' . (el_time_min / 60) . ':' . (el_time_min % 60) . "hrs"
-	
-	else
-		let time_str = '' . el_time_min . 'mins'
-	endif
-	
-	return "job:" . s:current_project . '.' . s:current_job . '#' . time_str
+	return s:current_project . '.' . s:current_job . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
 
 endfunction
 "																			}}}
@@ -199,6 +200,73 @@ function! TimeKeeper_SaveTimeSheet(create)
 endfunction
 "																			}}}
 " INTERNAL FUNCTIONS
+" FUNCTION: s:TimeKeeper_UpdateGitNote()									{{{
+" 
+" This function will read in the git note from the current branch and then
+" find the line that matches the current job in the note and then write the
+" note back. This will use a temporary file that is used to do the write back
+" a this is the only sane way to get a multilined note back in to git. 
+"
+" This code forces the add so that it will create/update the note. As the 
+" order of the lines in the note are preserved and only the current job is
+" updated (for the current user) the note should not clash when merged/pushed
+" but we will have to see how well this works in the real world.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing.
+"
+" TODO: testing removed the s:
+function! TimeKeeper_UpdateGitNote()
+	redir => git_note_contents
+	silent execute "!git notes --ref=timekeeper show"
+	redir END
+	
+	" git quire nicely adds x00 for some reason to outputs - and remove the command line
+	let time_notes = split(substitute(git_note_contents,'[\x00]',"","g"),"\x0d")
+	call remove(time_notes,0)
+	
+	"lets get the users email address - leaving the x00 on the end, we can use this as a delimiter
+	let email_address = system("git config --get user.email")
+	echomsg "email " . email_address
+
+	" check to see if "error:" starts the string as denotes that there is not a note
+	if (strpart(time_notes[0],0,6) == "error:")
+		let time_notes = []
+		let note_index = 0
+		let time_notes = [ email_address . TimeKeeper_GetCurrentJobString() ]
+		echomsg "time note " . time_notes[0]
+
+	else
+		" Ok, had a note, now find the required name in it
+		name_length = strlen(email_address)
+
+		while index < len(time_notes)
+			if strpart(time_notes[index],0,name_length) == email_address
+				time_notes[index] = email_address . TimeKeeper_GetCurrentJobString()
+				echomsg "time note [index]" . time_notes[index]
+				break
+			endif
+		endwhile
+
+		" extend the list if it was not found in the note
+		if (index == len(time_notes))
+			call add(time_notes,email_address . TimeKeeper_GetCurrentJobString())
+		endif
+	endif
+
+	" Ok, now write the updated note back to the repository - only use one temp file
+	" don't want to DoS myself by using up all the disk with temp files.
+	if !exists("s:gitnote_temp_file") || empty(s:gitnote_temp_file)
+		let s:gitnote_temp_file = tempname()
+	endif
+
+	call writefile(time_notes,s:gitnote_temp_file)
+	silent execute "!git notes --ref=timekeeper add -F " . s:gitnote_temp_file
+endfunction
+"																			}}}
 " FUNCTION: s:TimeKeeper_SetJobNameFromGitRepository()						{{{
 "
 " This function will search the tree UPWARDS to find the git repository that the 
@@ -297,7 +365,7 @@ function! s:TimeKeeper_ImportJob(values)
 	endif
 endfunction
 "																			}}}
-" FUNCTION: s:TimeKeeper_LoadTimeSheet(timesheet_file)  					{{{
+" FUNCTION: s:TimeKeeper_LoadTimeSheet()  							{{{
 "
 " This function will load the timesheet that is given. If the timesheet file given
 " does not exist it will return an error.
@@ -310,7 +378,7 @@ endfunction
 " Not all times are seconds from the start of the unix epoc.
 "
 " vars:
-"	timesheet	The file to open as a timesheet
+"	none
 "
 " returns:
 "	1 - If the database could be loaded.
@@ -389,23 +457,21 @@ endfunction
 "	none
 "
 function! s:TimeKeeper_UserStartedTyping()
-	" Do we need to update the time that the user stopped typing?
-	if (localtime() - s:user_stopped_typing) > 10
-		" update the job with the last elapsed time.
-		call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
-
-		" check to see if we need to update the timesheet file
-		if (s:last_update_time + g:TimeKeeperUpdateFileTime) < s:user_stopped_typing
-			" Ok. we have to update the file now.
-			call TimeKeeper_SaveTimeSheet(0)
-		endif
-
-		" update the started typing time
-		let s:user_started_typing = localtime()
-		let s:user_stopped_typing = localtime()
-	else
-		echomsg "current running time: " . s:project_list[s:current_project].job[s:current_job].total_time . " not added: " . (s:user_stopped_typing - s:user_started_typing)
+	" Do we throw away the time that the user has been away?
+	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTime
+		" No, add the elapsed time.
+		call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
 	endif
+
+	" check to see if we need to update the timesheet file
+	if (s:last_update_time + g:TimeKeeperUpdateFileTime) < localtime()
+		" Ok. we have to update the file now.
+		call TimeKeeper_SaveTimeSheet(0)
+	endif
+
+	" update the started typing time
+	let s:user_started_typing = localtime()
+	let s:user_stopped_typing = localtime()
 
 	" remove the events as these slow down the editor
 	au! TimeKeeper CursorMovedI
@@ -448,8 +514,11 @@ endfunction
 "	none
 "
 function! s:TimeKeeper_CheckForCWDChange()
-
-	echomsg	"after : "
+	" has the directory changed? 	
+	if g:TimeKeeperUseLocal && s:current_dir != getcwd()
+		call s:TimeKeeper_SaveTimeSheet(0)
+		call s:TimeKeeper_LoadTimeSheet()
+	endif
 
 endfunction
 "																			}}}
