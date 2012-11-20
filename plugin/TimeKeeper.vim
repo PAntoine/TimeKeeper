@@ -117,6 +117,7 @@ if g:developing || !exists("s:TimeKeeperPlugin")
 	let s:user_stopped_typing = 0
 	let s:user_started_typing = localtime()
 	let s:last_update_time = localtime()
+	let s:last_note_update_time = localtime()
 
 	" needed to hold the start dir so the :cd changes can be detected
 	let s:current_dir = getcwd()
@@ -508,6 +509,12 @@ function! s:TimeKeeper_UserStartedTyping()
 	if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime()
 		" Ok. we have to update the file now.
 		call TimeKeeper_SaveTimeSheet(0)
+	endif
+
+	" check to see if we need to update the git note
+	if g:TimeKeeperUseGitNotes && (s:last_note_update_time + g:TimeKeeperGitNoteUpdateTimeSec) < localtime()
+		"Ok, we have to update the git note now
+		call TimeKeeper_UpdateGitNote()
 	endif
 
 	" update the started typing time
