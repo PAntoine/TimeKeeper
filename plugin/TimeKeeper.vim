@@ -123,6 +123,8 @@ if !exists("s:TimeKeeperPlugin")
 	let s:user_started_typing = localtime()
 	let s:last_update_time = localtime()
 	let s:last_note_update_time = localtime()
+	let s:current_job = g:TimeKeeperDefaultJob
+	let s:current_project = g:TimeKeeperDefaultProject
 
 	" needed to hold the start dir so the :cd changes can be detected
 	let s:current_dir = getcwd()
@@ -175,6 +177,7 @@ function! TimeKeeper_StartTracking()
 	au TimeKeeper CursorHold  * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper VimLeave    * nested call s:TimeKeeper_StopTracking()
+
 
 	if g:TimeKeeperUseGitProjectBranch
 		au TimeKeeper CmdwinLeave : call s:TimeKeeper_CheckForCWDChange()
@@ -282,12 +285,14 @@ function! s:TimeKeeper_UpdateGitNote()
 	else
 		" Ok, had a note, now find the required name in it
 		let name_length = strlen(email_address)
+		let index = 0
 
 		while index < len(time_notes)
 			if strpart(time_notes[index],0,name_length) == email_address
 				time_notes[index] = email_address . TimeKeeper_GetCurrentJobString()
 				break
 			endif
+			let index += 1
 		endwhile
 
 		" extend the list if it was not found in the note
@@ -304,6 +309,8 @@ function! s:TimeKeeper_UpdateGitNote()
 
 	call writefile(time_notes,s:gitnote_temp_file)
 	silent execute "!git notes --ref=timekeeper add -F " . s:gitnote_temp_file
+
+	let s:last_note_update_time = localtime()
 endfunction
 "																			}}}
 " FUNCTION: s:TimeKeeper_SetJobNameFromGitRepository()						{{{
