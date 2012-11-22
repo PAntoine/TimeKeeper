@@ -76,14 +76,14 @@ Simply copy the contents of the plugin directory to the plugin directory in your
 You can leave the configuration variables alone as these have sensible defaults and if you
 put the following line in your .vimrc the timekeeper will start when you start typing:
 
-  cal
+  call TimeKeeper_StartTracking()
 
 And the should be it.
 
 TODO
 ----
 
-... develop the thing.
+Nothing, well except write the ruby plugin for Redmine to handle the other end of this.
 
 Licence and Copyright
 ---------------------

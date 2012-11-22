@@ -1,0 +1,160 @@
+*timekeeper.txt*  For Vim version 7.0 Last change: 2012 November 22
+
+
+,--------.,--.                 ,--. ,--.                                    ~
+'--.  .--'`--',--,--,--. ,---. |  .'   / ,---.  ,---.  ,---.  ,---. ,--.--. ~
+   |  |   ,--.|        || .-. :|  .   ' | .-. :| .-. :| .-. || .-. :|  .--' ~
+   |  |   |  ||  |  |  |\   --.|  |\   \\   --.\   --.| '-' '\   --.|  |    ~
+   `--'   `--'`--`--`--' `----'`--' '--' `----' `----'|  |-'  `----'`--'    ~
+                                                      `--'                  ~
+                                                                            ~
+Author:	  Peter Antoine
+Date:     Novenmber 21, 2012
+Version:  1.0.0
+HomePage: https://github.com/PAntoine/timekeeper
+
+For instructions on installing this file, type:
+>
+	:help add-local-help |add-local-help| inside Vim.
+<
+
+==============================================================================
+1. Contents                                 *TimeKeeper* *TimeKeeper-contents*
+
+    1. Contents...............................: |TimeKeeper-contents|
+    2. Description............................: |TimeKeeper-description|
+    3. Usage..................................: |TimeKeeper-usage|
+    4. Useful TimeKeeper Functions............: |TimeKeeper-functions|
+    5. Configuration..........................: |TimeKeeper-config|
+    6. History................................: |TimeKeeper-history|
+
+==============================================================================
+2. Description                                   *TimeKeeper-description*
+
+This plugin will keep track of the time spent in the editor. It will
+try and workout how much time is being spent on the current activity.
+It will allocate the time that is spent on the current task. It also will
+add notes to the repository if the repository will allow this.
+
+For details on the changes between versions see |TimeKeeper-history|.
+
+==============================================================================
+3. Usage                                         *TimeKeeper-usage*
+
+TimeKeeper will track the time that you spend in Vim. It will store this time
+in a comma separated value (CSV) file.
+
+The TimeKeeper plugin does not start recording time until you call the start
+recording function:
+
+    call TimeKeeper_StartTracking()
+
+If this is the first time that you have called TimeKeeper it will ask you
+can it create the file. You can change the location of the file, but you then
+must tell TimeKeeper where this is. You can do this in your .vimrc by setting
+the |g:TimeKeeperFilename| variable to where the file is.
+
+After this the tracking is automatic and this file will be updated regularly.
+
+TimeKeeper uses the vim auto |CursorHold| and |CursorMove| (and a couple others)
+to handle the tracking. What the CursorHold does is to fire an event when the
+cursor has not moved for 'updatetime' ms. It then uses the CursorMove event 
+to know when you started typing again. If the start-end time is with then 
+away time then this time is added (as well as the time you spent typing) to the
+total time you have been working. If this time is greater then this time is
+thrown away as it assumes you where doing other things and the time should 
+not be tracked. These times are configurable.
+
+Note: that as the tracking is only done when you stop typing for 'updatetime'
+ms (which currently defaults to 4 seconds) the update is only done periodically.
+The update could have been done on every cursor move, but this slowed down the
+editor on slower laptops (which I am owner of one - and it will be removed
+from my cold dead hands). 
+
+If you are using Git and have not changed the |g:TimeKeeperUseGitProjectBranch|
+variable to 0, then the current job will default to the current branch and the
+current project will default the directory name that the repository is in. Also
+if you have left |g:g:TimeKeeperUseGitNotes| turned on then TimeKeeper will
+also write the time of the current job to a 'timekeeper' gitnote. This will
+be accessible to other software that can read the git notes on from the repository.
+You should remember to push these notes if you want then to be seen globally.
+
+The TimeKeeper will stop tracking time (obviously) when the editor closes and
+it will update all on close. If you want to stop tracking time manually then
+you simply have to call the following function:
+
+    call TimeKeeper_StopTracking()
+
+==============================================================================
+4. Useful TimeKeeper Functions                      *TimeKeeper-functions*
+
+There is only three function that are useful outside of the TimeKeeper and
+these functions are:
+
+TimeKeeper_StartTracking()							*TimeKeeper_StartTracking()*
+		This function simple starts the tracking. It will handle all the file
+		creation and set that is required. This function should only be called
+		once preferably by the .vimrc startup script. If it is called after the
+		time-tracking is started, it will throw away any time that has not
+		been written to the file. It will not leave the system inconsistent as
+		it reads the current time from the timesheet before it starts tracking
+		any time.
+
+TimeKeeper_StopTracking()							*TimeKeeper_StopTracking()*
+		This function stops the tracking. It will flush the data to the file and
+		call the gitnote update function.
+
+TimeKeeper_GetCurrentJobString()					*TimeKeeper_GetCurrentJobString()*
+		This function will return a string that will that contains the current
+		project,job and the time in days:hours:mins. This can be used on the
+		statusline to let you know what job the editor thinks you are on and
+		how much time you have spent on it.
+
+==============================================================================
+5. Configuration									*TimeKeeper-configuration*
+
+The following are the globals that are used to configure the way that timekeeper
+handles the tracking of time. The default is in square brackets.
+
+g:TimeKeeperAwayTimeSec	         					*g:TimeKeeperAwayTimeSec*
+		If the user does not type for this amount of time it is assumed that
+		they were away from the keyboard and the time is not registered. [360]
+
+g:TimeKeeperDefaultProject							*g:TimeKeeperDefaultProject*
+		The default project to add time to ['default']
+
+g:TimeKeeperDefaultJob								*g:TimeKeeperDefaultJob*
+		The default job to add time to ['default']
+
+g:TimeKeeperUpdateFileTimeSec						*g:TimeKeeperUpdateFileTimeSec*
+		The frequency that the timesheet file will be updated. [60 * 15 - 15 mins]
+
+g:TimeKeeperUseLocal								*g:TimeKeeperUseLocal*
+		If this flag is set then the timekeeper will create a file at the cwd of
+		the editor. [0]
+
+g:TimeKeeperFileName								*g:TimeKeeperFileName*
+		The filename that the timesheet will be saved to. [(.)timekeeper.tmk] 
+
+g:TimeKeeperUseGitProjectBranch						*g:TimeKeeperUseGitProjectBranch*
+		If vim is in a git repository use the directory name as the project name
+		and the branch name as the job name. [1]
+
+g:TimeKeeperUseGitNotes								*g:TimeKeeperUseGitNotes*
+		If this flag is set then timekeeper will create a gitnote in the current
+		branch if the editor is in a git repository. It will create a gitnote with the
+		ref of you guessed it "timekeeper". It will try and keep the entries separate
+		as it will use the user.email as the key for the entries. [1]
+
+g:TimeKeeperGitNoteUpdateTimeSec					*g:TimeKeeperGitNoteUpdateTimeSec*
+		The time that the git notes will be updated this is not that important as it
+		re-writes the gitnote, but will cause you git history to get quite large if you
+		update the notes too frequently. [60 * 60]
+
+==============================================================================
+6. History                                       *TimeKeeper-history*
+
+  1.0.0: November 21. 2012:
+         PA: Initial release.
+
+vim: ts=4 ft=help tw=78
