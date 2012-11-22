@@ -60,6 +60,11 @@
 "                             All rights Reserved.
 "                     Released Under the Artistic Licence
 " ---------------------------------------------------------------------------------
+"{{{ Revision History
+"    Version   Author Date        Changes
+"    -------   ------ ----------  -------------------------------------------------
+"    1.0.0     PA     21.11.2012  Initial revision
+"																				}}}
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
@@ -218,15 +223,12 @@ function! TimeKeeper_SaveTimeSheet(create)
 	let result = 0
 
 	if !a:create && !filewritable(g:TimeKeeperFileName)
-		echomsg "timesheet file is not writable"
+		call s:TimeKeeper_ReportError("timesheet file is not writable")
 	else
-		echomsg "in the write"
 		let output = []
 
 		" Ok, lets build the output List of lists that need to be written to the file.
 		for project_name in keys(s:project_list)
-			echomsg "project " . project_name
-
 			for job_name in keys(s:project_list[project_name].job)
 				let line = project_name . ',' . job_name . ',' . 
 					\ s:project_list[project_name].job[job_name].start_time . ',' . s:project_list[project_name].job[job_name].total_time
@@ -260,8 +262,7 @@ endfunction
 " returns:
 "	nothing.
 "
-" TODO: testing removed the s:
-function! TimeKeeper_UpdateGitNote()
+function! s:TimeKeeper_UpdateGitNote()
 	redir => git_note_contents
 	silent execute "!git notes --ref=timekeeper show"
 	redir END
@@ -271,24 +272,20 @@ function! TimeKeeper_UpdateGitNote()
 	call remove(time_notes,0)
 	
 	"lets get the users email address - leaving the x00 on the end, we can use this as a delimiter
-	let email_address = system("git config --get user.email")
-	echomsg "email " . email_address
+	let email_address = substitute(system("git config --get user.email"),'[\x00]',",","g")
 
 	" check to see if "error:" starts the string as denotes that there is not a note
 	if (strpart(time_notes[0],0,6) == "error:")
 		let time_notes = []
 		let note_index = 0
 		let time_notes = [ email_address . TimeKeeper_GetCurrentJobString() ]
-		echomsg "time note " . time_notes[0]
-
 	else
 		" Ok, had a note, now find the required name in it
-		name_length = strlen(email_address)
+		let name_length = strlen(email_address)
 
 		while index < len(time_notes)
 			if strpart(time_notes[index],0,name_length) == email_address
 				time_notes[index] = email_address . TimeKeeper_GetCurrentJobString()
-				echomsg "time note [index]" . time_notes[index]
 				break
 			endif
 		endwhile
@@ -435,17 +432,15 @@ function! s:TimeKeeper_LoadTimeSheet()
 	else
 		
 		if !filewritable(g:TimeKeeperFileName)
-			echomsg "Timesheet file cannot be written"
+			call s:TimeKeeper_ReportError("Timesheet file cannot be written")
 		
 		elseif !filereadable(g:TimeKeeperFileName)
-			echomsg "Timesheet file cannot be read"
+			call s:TimeKeeper_ReportError("Timesheet file cannot be read")
 
 		else
 			let timesheet_data = readfile(g:TimeKeeperFileName)
 			
-			if empty(timesheet_data)
-				echomsg "timesheet file empty"
-			else
+			if !empty(timesheet_data)
 				let result = 1
 
 				for item in timesheet_data
@@ -488,6 +483,19 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	return s:project_list[a:project_name].job[a:job_name]
 endfunction
 "																			}}}
+" FUNCTION: s:TimeKeeper_ReportError(error_message)  						{{{
+"
+" This function will report an error that occurred.
+"
+" vars:
+"	error_message	This is the error/warning to report.
+"
+function! s:TimeKeeper_ReportError(error_message)
+	echohl WarningMsg
+	echomsg error_message
+	echohl Normal
+endfunction
+"																			}}}
 " AUTOCMD FUNCTIONS
 " FUNCTION: s:TimeKeeper_UserStartedTyping()									{{{
 "
@@ -514,7 +522,7 @@ function! s:TimeKeeper_UserStartedTyping()
 	" check to see if we need to update the git note
 	if g:TimeKeeperUseGitNotes && (s:last_note_update_time + g:TimeKeeperGitNoteUpdateTimeSec) < localtime()
 		"Ok, we have to update the git note now
-		call TimeKeeper_UpdateGitNote()
+		call s:TimeKeeper_UpdateGitNote()
 	endif
 
 	" update the started typing time
@@ -566,6 +574,9 @@ function! s:TimeKeeper_CheckForCWDChange()
 	if g:TimeKeeperUseLocal && s:current_dir != getcwd()
 		call s:TimeKeeper_SaveTimeSheet(0)
 		call s:TimeKeeper_LoadTimeSheet()
+	
+		" This should stop it failing over if there is a problem
+		call s:TimeKeeper_AddJob(s:current_project,s:current_job)
 	endif
 
 endfunction
