@@ -68,7 +68,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if g:developing || !exists("s:TimeKeeperPlugin")
+if !exists("s:TimeKeeperPlugin")
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
