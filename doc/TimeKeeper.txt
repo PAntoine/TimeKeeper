@@ -56,6 +56,10 @@ the |g:TimeKeeperFilename| variable to where the file is.
 
 After this the tracking is automatic and this file will be updated regularly.
 
+Also, after you have started timetracking at least once, then you can set the
+configuration flag |g:TimeKeeperStartOnLoad| to 1 and it will cause the 
+TimeKeeper to start as soon as it can.
+
 TimeKeeper uses the vim auto |CursorHold| and |CursorMove| (and a couple others)
 to handle the tracking. What the CursorHold does is to fire an event when the
 cursor has not moved for 'updatetime' ms. It then uses the CursorMove event 
@@ -78,6 +82,17 @@ if you have left |g:g:TimeKeeperUseGitNotes| turned on then TimeKeeper will
 also write the time of the current job to a 'timekeeper' gitnote. This will
 be accessible to other software that can read the git notes on from the repository.
 You should remember to push these notes if you want then to be seen globally.
+
+The format of the gitnote will be:
+>
+	<user_email>,<project_name>.<job_name>#days:hours:minutes
+<
+The gitnotes will be added to the CURRENT commit so there will be a history of
+the time it took on the previous gitnotes for the commits. This how gitnotes
+works, and maybe useful. But, the last commit will have the TOTAL time that
+TimeKeeper thinks that you have used. It might be wise to use different id's
+on different machines, or use local TimeKeeper files that you can commit to
+the repository so that these times can stay conistant. 
 
 The TimeKeeper will stop tracking time (obviously) when the editor closes and
 it will update all on close. If you want to stop tracking time manually then
@@ -150,6 +165,11 @@ g:TimeKeeperGitNoteUpdateTimeSec					*g:TimeKeeperGitNoteUpdateTimeSec*
 		The time that the git notes will be updated this is not that important as it
 		re-writes the gitnote, but will cause you git history to get quite large if you
 		update the notes too frequently. [60 * 60]
+
+g:TimeKeeperStartOnLoad								*g:TimeKeeperStartOnLoad*
+Start the TimeKeeper on vim load, this should not be done before the default file has
+been created by running the start.
+
 
 ==============================================================================
 6. History                                       *TimeKeeper-history*

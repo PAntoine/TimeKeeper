@@ -51,7 +51,10 @@
 "                                            this is not that important as it re-writes
 "                                            the note, but will cause you git history
 "                                            to get quite large if you update the notes
-"                                            too requently.
+"                                            too frequently.
+"           g:TimeKeeperStartOnLoad          Start the TimeKeeper on vim load, this 
+"                                            should not be done before the default file
+"                                            has been created by running the start.
 "
 "   author: Peter Antoine
 "     date: 16/11/2012 18:05:21
@@ -68,7 +71,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin")
+if g:development || !exists("s:TimeKeeperPlugin")
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
@@ -113,13 +116,18 @@ if !exists("s:TimeKeeperPlugin")
 		let g:TimeKeeperGitNoteUpdateTimeSec = 60 * 60		" Update the git not once an hour - This will only be updated when the timesheet is updates.
 	endif
 
+	" Set the flag start on Load
+	if !exists("g:TimeKeeperStartOnLoad")
+		let g:TimeKeeperStartOnLoad = 0
+	endif
+
 	" internal data structures for holding the projects
 	let s:current_job = g:TimeKeeperDefaultJob
 	let s:project_list = {}
 
 	" script level functions to start time capture
 	let s:list_time_called = 0
-	let s:user_stopped_typing = 0
+	let s:user_stopped_typing = localtime()
 	let s:user_started_typing = localtime()
 	let s:last_update_time = localtime()
 	let s:last_note_update_time = localtime()
@@ -130,6 +138,7 @@ if !exists("s:TimeKeeperPlugin")
 	let s:current_dir = getcwd()
 
 	augroup TimeKeeper						" Create the group to hold all the events.
+
 "																			}}}
 " PUBLIC FUNCTIONS
 " FUNCTION: TimeKeeper_StopTracking() 						 				{{{
@@ -145,6 +154,12 @@ function! TimeKeeper_StopTracking()
 	au! TimeKeeper
 	call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
 	call TimeKeeper_SaveTimeSheet(0)
+	
+	" check to see if we need to update the git note
+	if g:TimeKeeperUseGitNotes
+		call s:TimeKeeper_UpdateGitNote()
+	endif
+
 endfunction
 "																			}}}
 " FUNCTION: TimeKeeper_StartTracking()  									{{{
@@ -176,8 +191,7 @@ function! TimeKeeper_StartTracking()
 	au TimeKeeper CursorHoldI * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper CursorHold  * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
-	au TimeKeeper VimLeave    * nested call s:TimeKeeper_StopTracking()
-
+	au TimeKeeper VimLeave    * nested call TimeKeeper_StopTracking()
 
 	if g:TimeKeeperUseGitProjectBranch
 		au TimeKeeper CmdwinLeave : call s:TimeKeeper_CheckForCWDChange()
@@ -225,28 +239,191 @@ endfunction
 function! TimeKeeper_SaveTimeSheet(create)
 	let result = 0
 
-	if !a:create && !filewritable(g:TimeKeeperFileName)
-		call s:TimeKeeper_ReportError("timesheet file is not writable")
-	else
-		let output = []
+	" only update the file if we are the server else leave it alone
+	if s:current_server == ''
+		if !a:create && !filewritable(g:TimeKeeperFileName)
+			call s:TimeKeeper_ReportError("timesheet file is not writable")
+		else
+			let output = []
 
-		" Ok, lets build the output List of lists that need to be written to the file.
-		for project_name in keys(s:project_list)
-			for job_name in keys(s:project_list[project_name].job)
-				let line = project_name . ',' . job_name . ',' . 
-					\ s:project_list[project_name].job[job_name].start_time . ',' . s:project_list[project_name].job[job_name].total_time
-				call add(output,line)
+			" Ok, lets build the output List of lists that need to be written to the file.
+			for project_name in keys(s:project_list)
+				for job_name in keys(s:project_list[project_name].job)
+					let line = project_name . ',' . job_name . ',' . 
+						\ s:project_list[project_name].job[job_name].start_time . ',' . s:project_list[project_name].job[job_name].total_time
+					call add(output,line)
+				endfor
 			endfor
-		endfor
-		
-		" write the result to a file
-		call writefile(output,g:TimeKeeperFileName)
+			
+			" write the result to a file
+			call writefile(output,g:TimeKeeperFileName)
 
-		let s:last_update_time = localtime()
+			let s:last_update_time = localtime()
+		endif
+	endif
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_FindServer()  										{{{
+"
+" This function will find the current server.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! TimeKeeper_FindServer()
+	let s:current_server = ''
+	let server_list = split(serverlist())
+
+	for server in server_list
+		if server != v:servername
+			try
+				if remote_expr(server,'TimeKeeper_IsServer()') == 'yes'
+					let s:current_server = server
+				endif
+			catch /E449/
+				" do nothing - it is not running the script
+			endtry
+		endif
+	endfor
+
+	if s:current_server == ''
+		echomsg 'I am the server'
+	else
+		echomsg 'The server is ' . s:current_server
+	endif
+
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_IsServer()  											{{{
+"
+" This function will find the current server.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! TimeKeeper_IsServer()
+	if s:current_server == ''
+		return 'yes'
+	else
+		return 'no'
 	endif
 endfunction
 "																			}}}
 " INTERNAL FUNCTIONS
+" FUNCTION: TimeKeeper_UpdateJob(project_name,job_name,time)				{{{
+"
+" This function will update a job with the time that has elapsed.
+"
+" If there is server running it will send the update to the server.
+" 
+" vars:
+"	project_name	The name of the project.
+"	job_name		The name of the job.
+"	time			The name of the time.
+"
+" returns:
+"	nothing
+"
+function! TimeKeeper_UpdateJob(project_name, job_name, time)
+	let job = s:TimeKeeper_AddJob(a:project_name,a:job_name)
+	
+	let job.total_time += a:time
+	let s:project_list[a:project_name].total_time += a:time
+
+	if s:current_server != ''
+		" Ok, we are not the server, we need to update the server
+		let job_string = "TimeKeeper_UpdateJob('" . a:project_name . "','" . a:job_name . "'," . a:time . ")"
+		
+		try 
+			call remote_expr(s:current_server,job_string)
+		catch /E449/
+			" find the server
+			call TimeKeeper_FindServer()
+
+			if s:current_server != ''
+				try 
+					call remote_expr(s:current_server,job_string)
+				catch /E449/
+					TimeKeeper_ReportError("can't update the remote server")
+				endtry
+			endif
+		endtry
+	endif
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_ReportError(error_message)  						{{{
+"
+" This function will report an error that occurred.
+"
+" vars:
+"	error_message	This is the error/warning to report.
+"
+function! s:TimeKeeper_ReportError(error_message)
+	echohl WarningMsg
+	echomsg a:error_message
+	echohl Normal
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_AddJob(project_name,job_name)  						{{{
+"
+" This function will add a job to the project/job database. If the project
+" does not exist it will be created, and if the job does not exist that will
+" also be created as well.
+"
+" vars:
+"	project_name	The project that the job should be created in.
+" 	job_name		This is the job to create.
+"
+function! s:TimeKeeper_AddJob(project_name,job_name)
+	" check to see if it is a new project
+	if !has_key(s:project_list,a:project_name)
+		let s:project_list[a:project_name] = {'total_time':0, 'num_jobs': 1, 'job': {} }
+	endif
+
+	" check to see if it is a new job that we are dealing with
+	if !has_key(s:project_list[a:project_name].job,a:job_name)
+
+		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime() }
+	endif
+
+	return s:project_list[a:project_name].job[a:job_name]
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_ImportJob(values)  								{{{
+"
+" This function will import a job into the timesheet dictionary.
+" 
+" format:
+" 
+"      values = [project, job, start_time, total_time]
+"
+" Not all times are seconds from the start of the unix epoc.
+"
+" vars:
+"	timesheet	The file to open as a timesheet
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_ImportJob(values)
+
+	if len(a:values) == 4
+		" set the job values
+		let job = s:TimeKeeper_AddJob(a:values[0],a:values[1])
+		let job.start_time = a:values[2]
+		let job.total_time = a:values[3]
+
+		"set the project totals
+		let s:project_list[a:values[0]].total_time	+= a:values[3]
+		let s:project_list[a:values[0]].num_jobs	+= 1
+	endif
+endfunction
+"																			}}}
 " FUNCTION: s:TimeKeeper_UpdateGitNote()									{{{
 " 
 " This function will read in the git note from the current branch and then
@@ -267,7 +444,7 @@ endfunction
 "
 function! s:TimeKeeper_UpdateGitNote()
 	redir => git_note_contents
-	silent execute "!git notes --ref=timekeeper show"
+	silent execute "!git --no-pager notes --ref=timekeeper show"
 	redir END
 	
 	" git quire nicely adds x00 for some reason to outputs - and remove the command line
@@ -289,7 +466,7 @@ function! s:TimeKeeper_UpdateGitNote()
 
 		while index < len(time_notes)
 			if strpart(time_notes[index],0,name_length) == email_address
-				time_notes[index] = email_address . TimeKeeper_GetCurrentJobString()
+				let time_notes[index] = email_address . TimeKeeper_GetCurrentJobString()
 				break
 			endif
 			let index += 1
@@ -308,7 +485,7 @@ function! s:TimeKeeper_UpdateGitNote()
 	endif
 
 	call writefile(time_notes,s:gitnote_temp_file)
-	silent execute "!git notes --ref=timekeeper add -F " . s:gitnote_temp_file
+	silent execute "!git --no-pager notes --ref=timekeeper add --force -F " . s:gitnote_temp_file
 
 	let s:last_note_update_time = localtime()
 endfunction
@@ -338,76 +515,6 @@ function! s:TimeKeeper_SetJobNameFromGitRepository()
         let s:current_job = substitute(branch, '\n', '', 'g')
 	else
 	    let s:current_job = ''
-	endif
-endfunction
-"																			}}}
-" FUNCTION: s:TimeKeeper_UpdateJob(project_name,job_name,time)				{{{
-"
-" This function will update a job with the time that has elapsed.
-" 
-" vars:
-"	project_name	The name of the project.
-"	job_name		The name of the job.
-"	time			The name of the time.
-"
-" returns:
-"	nothing
-"
-function! s:TimeKeeper_UpdateJob(project_name, job_name, time)
-	let job = s:TimeKeeper_AddJob(a:project_name,a:job_name)
-	
-	let job.total_time += a:time
-	let s:project_list[a:project_name].total_time += a:time
-
-endfunction
-"																			}}}
-" FUNCTION: s:TimeKeeper_RequestCreate()  									{{{
-"
-" This function will ask the user before creating the timesheet file.
-" 
-" vars:
-"	timesheet	The file to open as a timesheet
-" returns:
-"	nothing
-"
-function! s:TimeKeeper_RequestCreate()
-	
-	let g:TimeKeeperFileName = input("Please supply TimeKeeper timesheet filename: ",g:TimeKeeperFileName)
-
-	if ( g:TimeKeeperFileName != '' )
-		" create the default job
-		call s:TimeKeeper_AddJob(s:current_project,s:current_job)
-		call TimeKeeper_SaveTimeSheet(1)
-	endif
-
-endfunction
-"																			}}}
-" FUNCTION: s:TimeKeeper_ImportJob(values)  								{{{
-"
-" This function will import a job into the timesheet dictionary.
-" 
-" format:
-" 
-"      values = [project, job, start_time, total_time]
-"
-" Not all times are seconds from the start of the unix epoc.
-"
-" vars:
-"	timesheet	The file to open as a timesheet
-" returns:
-"	nothing
-"
-function! s:TimeKeeper_ImportJob(values)
-
-	if len(a:values) == 4
-		" set the job values
-		let job = s:TimeKeeper_AddJob(a:values[0],a:values[1])
-		let job.start_time = a:values[2]
-		let job.total_time = a:values[3]
-
-		"set the project totals
-		let s:project_list[a:values[0]].total_time	+= a:values[3]
-		let s:project_list[a:values[0]].num_jobs	+= 1
 	endif
 endfunction
 "																			}}}
@@ -465,46 +572,31 @@ function! s:TimeKeeper_LoadTimeSheet()
 	return result
 endfunction
 "																			}}}
-" FUNCTION: s:TimeKeeper_AddJob(project_name,job_name)  						{{{
+" FUNCTION: s:TimeKeeper_RequestCreate()  									{{{
 "
-" This function will add a job to the project/job database. If the project
-" does not exist it will be created, and if the job does not exist that will
-" also be created as well.
-"
+" This function will ask the user before creating the timesheet file.
+" 
 " vars:
-"	project_name	The project that the job should be created in.
-" 	job_name		This is the job to create.
+"	timesheet	The file to open as a timesheet
+" returns:
+"	nothing
 "
-function! s:TimeKeeper_AddJob(project_name,job_name)
-	" check to see if it is a new project
-	if !has_key(s:project_list,a:project_name)
-		let s:project_list[a:project_name] = {'total_time':0, 'num_jobs': 1, 'job': {} }
+function! s:TimeKeeper_RequestCreate()
+	
+	let g:TimeKeeperFileName = input("Please supply TimeKeeper timesheet filename: ",g:TimeKeeperFileName)
+
+	if ( g:TimeKeeperFileName != '' )
+		" create the default job
+		call s:TimeKeeper_AddJob(g:TimeKeeperDefaultProject,g:TimeKeeperDefaultJob)
+		
+		" create the current job
+		call s:TimeKeeper_AddJob(s:current_project,s:current_job)
+		call TimeKeeper_SaveTimeSheet(1)
 	endif
-
-	" check to see if it is a new job that we are dealing with
-	if !has_key(s:project_list[a:project_name].job,a:job_name)
-
-		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime() }
-	endif
-
-	return s:project_list[a:project_name].job[a:job_name]
-endfunction
-"																			}}}
-" FUNCTION: s:TimeKeeper_ReportError(error_message)  						{{{
-"
-" This function will report an error that occurred.
-"
-" vars:
-"	error_message	This is the error/warning to report.
-"
-function! s:TimeKeeper_ReportError(error_message)
-	echohl WarningMsg
-	echomsg error_message
-	echohl Normal
 endfunction
 "																			}}}
 " AUTOCMD FUNCTIONS
-" FUNCTION: s:TimeKeeper_UserStartedTyping()									{{{
+" FUNCTION: s:TimeKeeper_UserStartedTyping()								{{{
 "
 " This function will be called when the user has started typing again. This
 " function will be called when the user moves the cursor or the editor regains
@@ -518,6 +610,9 @@ function! s:TimeKeeper_UserStartedTyping()
 	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTimeSec
 		" No, add the elapsed time.
 		call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
+	else
+		"Yes, just add the stop to start time
+		call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
 	endif
 
 	" check to see if we need to update the timesheet file
@@ -585,7 +680,13 @@ function! s:TimeKeeper_CheckForCWDChange()
 		" This should stop it failing over if there is a problem
 		call s:TimeKeeper_AddJob(s:current_project,s:current_job)
 	endif
-
 endfunction
 "																			}}}
+
+	" Start tracking if the user wants us to.
+	if g:TimeKeeperStartOnLoad
+		call TimeKeeper_StartTracking()
+	endif
+
+
 endif

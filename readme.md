@@ -26,48 +26,6 @@ The git notes are only added to the current branch for the current
 job, hopefully this will reduce the problems that git-notes have with
 push/branching and merging.
 
-Configuration
--------------
-
-          config variable                  description
-          ---------------                  ---------------------------------------
-          g:TimeKeeperAwayTimeSec	       If the user does not type for this 
-                                           amount of time it is assumed that they
-                                           were away from the keyboard and the 
-                                           time is not registered. [360]
-
-          g:TimeKeeperDefaultProject       The default project to add time to ['default']
-
-          g:TimeKeeperDefaultJob           The default job to add time to ['default']
-
-          g:TimeKeeperUseGitProjectBranch  If vim is in a git repository use the 
-                                           directory name as the project name and the
-                                           branch name as the job name. [1]
-
-          g:TimeKeeperUpdateFileTimeSec    The frequency that the timesheet file
-                                           will be updated. [60 * 15 - 15 mins]
-
-          g:TimeKeeperUseLocal             If this flag is set then the timekeeper
-                                           will create a file at the cwd of the
-                                           editor. [0]
-
-          g:TimeKeeperFileName             The filename that the timesheet will be
-                                           saved to. [(.)timekeeper.tmk] 
-
-          g:TimeKeeperUseGitNotes          If this flag is set then timekeeper will
-                                           create a git note in the current branch
-                                           if the editor is in a git repository. It
-                                           will create a note with the ref of you
-                                           guessed it "timekeeper". It will try and
-                                           keep the entries separate as it will use
-                                           the user.email as the key for the entries.
-
-          g:TimeKeeperGitNoteUpdateTimeSec The time that the git notes will be updated
-                                           this is not that important as it re-writes
-                                           the note, but will cause you git history
-                                           to get quite large if you update the notes
-                                           too requently.
-
 Installation
 ------------
 
@@ -78,12 +36,15 @@ put the following line in your .vimrc the timekeeper will start when you start t
 
   call TimeKeeper_StartTracking()
 
-And the should be it.
+And the should be it. Once you have done that once then you can set g:TimeKeeperStartOnLoad to
+1 and then TimeKeeper will start every time vim loads.
 
 TODO
 ----
 
-Nothing, well except write the ruby plugin for Redmine to handle the other end of this.
+1.	Write the ruby plugin for Redmine to handle the other end of this.
+2.	Multi-editor. If more than one editor is tracking time to the same timesheet it will mess-up
+    the time being stored. It does not sink or lock the timesheet file.
 
 Licence and Copyright
 ---------------------
