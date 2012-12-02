@@ -48,8 +48,6 @@ TODO
 ----
 
 1.	Write the ruby plugin for Redmine to handle the other end of this.
-2.	Multi-editor. If more than one editor is tracking time to the same timesheet it will mess-up
-    the time being stored. It does not sink or lock the timesheet file.
 
 Licence and Copyright
 ---------------------
