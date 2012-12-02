@@ -11,7 +11,7 @@
 Author:	  Peter Antoine
 Date:     Novenmber 21, 2012
 Version:  1.0.0
-HomePage: https://github.com/PAntoine/timekeeper
+HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
 >
@@ -60,6 +60,12 @@ Also, after you have started timetracking at least once, then you can set the
 configuration flag |g:TimeKeeperStartOnLoad| to 1 and it will cause the 
 TimeKeeper to start as soon as it can.
 
+TimeKeeper uses the |clientserver| functions in vim to allow for instances of
+vim to talk to each other. This will allow for the time to be updated safely
+without two difference instances overwritting the others tracked time. TimeKeeper
+works out which instance should be master and handles the writing to the file 
+and will handle the master instance disappearing.
+
 TimeKeeper uses the vim auto |CursorHold| and |CursorMove| (and a couple others)
 to handle the tracking. What the CursorHold does is to fire an event when the
 cursor has not moved for 'updatetime' ms. It then uses the CursorMove event 
@@ -78,7 +84,7 @@ from my cold dead hands).
 If you are using Git and have not changed the |g:TimeKeeperUseGitProjectBranch|
 variable to 0, then the current job will default to the current branch and the
 current project will default the directory name that the repository is in. Also
-if you have left |g:g:TimeKeeperUseGitNotes| turned on then TimeKeeper will
+if you have left |g:TimeKeeperUseGitNotes| turned on then TimeKeeper will
 also write the time of the current job to a 'timekeeper' gitnote. This will
 be accessible to other software that can read the git notes on from the repository.
 You should remember to push these notes if you want then to be seen globally.
@@ -146,7 +152,8 @@ g:TimeKeeperUpdateFileTimeSec						*g:TimeKeeperUpdateFileTimeSec*
 
 g:TimeKeeperUseLocal								*g:TimeKeeperUseLocal*
 		If this flag is set then the timekeeper will create a file at the cwd of
-		the editor. [0]
+		the editor. If your vim has been compiled without |clientserver| then this
+		will default to 1. [0]
 
 g:TimeKeeperFileName								*g:TimeKeeperFileName*
 		The filename that the timesheet will be saved to. [(.)timekeeper.tmk] 

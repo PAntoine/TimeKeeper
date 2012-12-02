@@ -20,6 +20,11 @@
 "           job, hopefully this will reduce the problems that git-notes have with
 "           push/branching and merging.
 "
+"           This plugin will handle multiple instances of vim. It will let the
+"           first instance of vim be the server and all others will send the updates
+"           to the instance that is the server. If that instance goes away then the
+"           first instance to notice will become the server.
+"
 "           The following flags effect the way that the plugin behaves:
 "
 "           config variable                  description
@@ -37,7 +42,7 @@
 "                                            will be updated. [60 * 15 - 15 mins]
 "           g:TimeKeeperUseLocal             If this flag is set then the timekeeper
 "                                            will create a file at the cwd of the
-"                                            editor. [0]
+"                                            editor. [+clientsever:0, else 1]
 "           g:TimeKeeperFileName             The filename that the timesheet will be
 "                                            saved to. [(.)timekeeper.tmk] 
 "           g:TimeKeeperUseGitNotes          If this flag is set then timekeeper will
@@ -71,7 +76,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if g:development || !exists("s:TimeKeeperPlugin")
+if !exists("s:TimeKeeperPlugin")
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
@@ -97,7 +102,11 @@ if g:development || !exists("s:TimeKeeperPlugin")
 	endif
 
 	if !exists("g:TimeKeeperUseLocal")
-		let g:TimeKeeperUseLocal = 0					" Use the file local to where the browser was started or use the user default
+		if (has('clientserver'))
+			let g:TimeKeeperUseLocal = 0					" Use the file local to where the browser was started or use the user default
+		else
+			let g:TimeKeeperUseLocal = 1					" Default to local, as without clientserver there will be race conditions.
+		endif
 	endif
 
 	if !exists("g:TimeKeeperFileName")					" What file should the TimeKeeper store the timesheet in
@@ -130,9 +139,10 @@ if g:development || !exists("s:TimeKeeperPlugin")
 	let s:user_stopped_typing = localtime()
 	let s:user_started_typing = localtime()
 	let s:last_update_time = localtime()
-	let s:last_note_update_time = localtime()
+	let s:last_note_update_time = 0							" use zero to forced the update on start
 	let s:current_job = g:TimeKeeperDefaultJob
 	let s:current_project = g:TimeKeeperDefaultProject
+	let s:current_server = ''
 
 	" needed to hold the start dir so the :cd changes can be detected
 	let s:current_dir = getcwd()
@@ -152,7 +162,7 @@ if g:development || !exists("s:TimeKeeperPlugin")
 "
 function! TimeKeeper_StopTracking()
 	au! TimeKeeper
-	call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
+	call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
 	call TimeKeeper_SaveTimeSheet(0)
 	
 	" check to see if we need to update the git note
@@ -173,6 +183,8 @@ endfunction
 "
 function! TimeKeeper_StartTracking()
 	call s:TimeKeeper_LoadTimeSheet()
+
+	call s:TimeKeeper_FindServer()
 
 	if g:TimeKeeperUseGitProjectBranch
 		call s:TimeKeeper_SetJobNameFromGitRepository()
@@ -216,6 +228,35 @@ function! TimeKeeper_GetCurrentJobString()
 	
 	return s:current_project . '.' . s:current_job . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
 
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_GetAllJobStrings() 									{{{
+"  
+" This function will return a list that is made up all the jobs.
+"
+" vars:
+"      none.
+" returns:
+"      string = "<project>.<job>#dd:hh:mm"
+"
+function! TimeKeeper_GetAllJobStrings()
+	
+	let output = []
+
+	" Ok, lets build the output List of lists that need to be written to the file.
+	for project_name in keys(s:project_list)
+		for job_name in keys(s:project_list[project_name].job)
+			let el_time_mins  = (s:project_list[project_name].job[job_name].total_time / 60) % 60
+			let el_time_hours = (s:project_list[project_name].job[job_name].total_time / (60*60)) % 60
+			let el_time_days  = (s:project_list[project_name].job[job_name].total_time / (60*60*24))
+	
+			let line = project_name . '.' . job_name . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
+
+			call add(output,line)
+		endfor
+	endfor
+
+	return output
 endfunction
 "																			}}}
 " FUNCTION: TimeKeeper_SaveTimeSheet(timesheet_file)  						{{{
@@ -263,40 +304,6 @@ function! TimeKeeper_SaveTimeSheet(create)
 	endif
 endfunction
 "																			}}}
-" FUNCTION: TimeKeeper_FindServer()  										{{{
-"
-" This function will find the current server.
-"
-" vars:
-"	none
-"
-" returns:
-"	nothing
-"
-function! TimeKeeper_FindServer()
-	let s:current_server = ''
-	let server_list = split(serverlist())
-
-	for server in server_list
-		if server != v:servername
-			try
-				if remote_expr(server,'TimeKeeper_IsServer()') == 'yes'
-					let s:current_server = server
-				endif
-			catch /E449/
-				" do nothing - it is not running the script
-			endtry
-		endif
-	endfor
-
-	if s:current_server == ''
-		echomsg 'I am the server'
-	else
-		echomsg 'The server is ' . s:current_server
-	endif
-
-endfunction
-"																			}}}
 " FUNCTION: TimeKeeper_IsServer()  											{{{
 "
 " This function will find the current server.
@@ -320,23 +327,32 @@ endfunction
 "
 " This function will update a job with the time that has elapsed.
 "
-" If there is server running it will send the update to the server.
+" If there is server running it will send the update to the server. It will
+" also call the file update if required.
 " 
 " vars:
 "	project_name	The name of the project.
 "	job_name		The name of the job.
-"	time			The name of the time.
+"	time			The time that is to be added to the job.
 "
 " returns:
 "	nothing
 "
 function! TimeKeeper_UpdateJob(project_name, job_name, time)
+	" track the time
 	let job = s:TimeKeeper_AddJob(a:project_name,a:job_name)
 	
 	let job.total_time += a:time
 	let s:project_list[a:project_name].total_time += a:time
 
-	if s:current_server != ''
+	" if we are master do the update
+	if s:current_server == ''
+		" check to see if we need to update the timesheet file
+		if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime()
+			" Ok. we have to update the file now.
+			call TimeKeeper_SaveTimeSheet(0)
+		endif
+	else
 		" Ok, we are not the server, we need to update the server
 		let job_string = "TimeKeeper_UpdateJob('" . a:project_name . "','" . a:job_name . "'," . a:time . ")"
 		
@@ -346,7 +362,13 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time)
 			" find the server
 			call TimeKeeper_FindServer()
 
-			if s:current_server != ''
+			if s:current_server == ''
+				" check to see if we need to update the timesheet file - as we are now master
+				if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime()
+					" Ok. we have to update the file now.
+					call TimeKeeper_SaveTimeSheet(0)
+				endif
+			else
 				try 
 					call remote_expr(s:current_server,job_string)
 				catch /E449/
@@ -354,6 +376,58 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time)
 				endtry
 			endif
 		endtry
+	endif
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_FindServer()  										{{{
+"
+" This function will find the current server.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_FindServer()
+	let old_server = s:current_server
+	let s:current_server = ''
+
+	" only bother checking if have clientserver
+	if (has('clientserver'))
+		let server_list = split(serverlist())
+
+		for server in server_list
+			if server != v:servername
+				try
+					if remote_expr(server,'TimeKeeper_IsServer()') == 'yes'
+						let s:current_server = server
+						break
+					endif
+				catch /E449/
+					" do nothing - it is not running the script
+				endtry
+			endif
+		endfor
+	endif
+
+	if (s:current_server == '') && (old_server != s:current_server)
+		" Need to load the timesheet as we are now the server - keep the current time
+		" as this is a race condition and we are voting for what we know, and assume there is
+		" only one editor in the current job as this needs more complex code to handle.
+		if has_key(s:project_list,s:current_project) && has_key(s:project_list[s:current_project],s:current_job)
+			let current_proj_time = s:project_list[s:current_project].total_time
+			let current_job_time = s:project_list[s:current_project].job[s:current_job].total_time
+		endif
+
+		" blow away the old db, and load a fresh one.
+		let s:project_list = {}
+		call s:TimeKeeper_LoadTimeSheet()
+
+		if exists('current_job_time')
+			let s:project_list[s:current_project].total_time = current_proj_time
+			let s:project_list[s:current_project].job[s:current_job].total_time = current_job_time
+		endif
 	endif
 endfunction
 "																			}}}
@@ -518,7 +592,7 @@ function! s:TimeKeeper_SetJobNameFromGitRepository()
 	endif
 endfunction
 "																			}}}
-" FUNCTION: s:TimeKeeper_LoadTimeSheet()  							{{{
+" FUNCTION: s:TimeKeeper_LoadTimeSheet()  									{{{
 "
 " This function will load the timesheet that is given. If the timesheet file given
 " does not exist it will return an error.
@@ -609,16 +683,10 @@ function! s:TimeKeeper_UserStartedTyping()
 	" Do we throw away the time that the user has been away?
 	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTimeSec
 		" No, add the elapsed time.
-		call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
 	else
 		"Yes, just add the stop to start time
-		call s:TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
-	endif
-
-	" check to see if we need to update the timesheet file
-	if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime()
-		" Ok. we have to update the file now.
-		call TimeKeeper_SaveTimeSheet(0)
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
 	endif
 
 	" check to see if we need to update the git note
@@ -683,10 +751,9 @@ function! s:TimeKeeper_CheckForCWDChange()
 endfunction
 "																			}}}
 
-	" Start tracking if the user wants us to.
-	if g:TimeKeeperStartOnLoad
-		call TimeKeeper_StartTracking()
-	endif
-
+" Start tracking if the user wants us to.
+if g:TimeKeeperStartOnLoad
+	call TimeKeeper_StartTracking()
+endif
 
 endif

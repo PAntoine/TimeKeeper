@@ -26,6 +26,11 @@ The git notes are only added to the current branch for the current
 job, hopefully this will reduce the problems that git-notes have with
 push/branching and merging.
 
+The plugin will find other instances of vim with the plugin loaded, and the first one to load
+will become the master server. All other instances will send there updates to the server. If the
+current server disappears then the first to notice will become the new server. This will reduce
+the chance of two instances losing time updates from other servers.
+
 Installation
 ------------
 
