@@ -54,7 +54,6 @@
 #---------------------------------------------------------------------------------
 
 timekeeper_string=''
-echo ---------------- called ---------------
 
 function TimeKeeper_GetTimeString ()
 {
@@ -86,7 +85,7 @@ function TimeKeeper_GetTimeString ()
 				then
 					timekeeper_string="refs $TIMEKEEPER_WORK_ID @$(($elapsed_time/(60*60)))h$((($elapsed_time/60)%60))"
 				else
-					timekeeper_string="$project.$job#$time#$elapsed_time"
+					timekeeper_string="($project.$job#$time#$elapsed_time)"
 				fi
 			fi
 		fi;
@@ -97,18 +96,15 @@ case "$2" in
   squash)	;;
   merge)	;;
   message)
-  	echo ---------------- message ---------------
   	TimeKeeper_GetTimeString
   	echo "$timekeeper_string" >> "$1" ;;
   commit)
-  	echo ---------------- commit ---------------
   	TimeKeeper_GetTimeString
     echo "$timekeeper_string" >> "$1" ;;
   "")
-  	echo ---------------- empty --------------- $timekeeper_string
   	TimeKeeper_GetTimeString
     echo "$timekeeper_string" >> "$1" ;;
-  *) echo "--- this one" >> "$1" ;;
+  *)  ;;
 esac
 
 
