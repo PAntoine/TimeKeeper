@@ -85,7 +85,7 @@ function TimeKeeper_GetTimeString ()
 				then
 					timekeeper_string="refs $TIMEKEEPER_WORK_ID @$(($elapsed_time/(60*60)))h$((($elapsed_time/60)%60))"
 				else
-					timekeeper_string="$project.$job#$time#$elapsed_time"
+					timekeeper_string="($project.$job#$time#$elapsed_time)"
 				fi
 			fi
 		fi;
