@@ -40,11 +40,6 @@ then
 		fi
 	fi
 
-	if [ "$TIMEKEEPER_WORK_ID" == "" ];
-	then
-		TIMEKEEPER_WORK_ID=${current_job/${current_job%%#[0-9]*}/}
-	fi
-
 	# if it's readable/writable - carry on
 	if [[ -w "$TIMEKEEPER_TIMESHEET" && -r "$TIMEKEEPER_TIMESHEET" ]];
 	then

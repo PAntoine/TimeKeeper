@@ -1,7 +1,7 @@
 TimeKeeper
 ==========
 
-Version 1.0.0
+Version 1.1.0
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -31,6 +31,10 @@ will become the master server. All other instances will send there updates to th
 current server disappears then the first to notice will become the new server. This will reduce
 the chance of two instances losing time updates from other servers.
 
+If you set up the git hooks that are provided, the timekeeper will also amend you commits to
+allow for the timetracking information to be added to the end of your commits. This is in the
+format that Redmine time tracking can read.
+
 Installation
 ------------
 
@@ -44,10 +48,23 @@ put the following line in your .vimrc the timekeeper will start when you start t
 And the should be it. Once you have done that once then you can set g:TimeKeeperStartOnLoad to
 1 and then TimeKeeper will start every time vim loads.
 
-TODO
-----
+Git Hooks
+---------
 
-1.	Write the ruby plugin for Redmine to handle the other end of this.
+To set up the Git hooks you will need to do the following in the root directory of the git repository.
+
+    ln -s ~/.vim/githooks/prepare-commit-msg .git/hooks/prepare-commit-msg
+    ln -s ~/.vim/githooks/post-commit .git/hooks/post-commit
+
+On Windows (not tested) you will need to copy them into hooks directory.
+
+The above assumes you have these plugins installed locally, else you will need to amend the source of
+the plugin, also it assumes that you don't already have these hooks, if you do then you will need
+to integrate these with your current hooks. I assume just adding:
+
+   .sh ~/.vim/githooks/prepare-commit-msg $1 $2 $3 
+
+to the end of your current prepare-commit-msg (and do similar for post) will do the job you need.
 
 Licence and Copyright
 ---------------------

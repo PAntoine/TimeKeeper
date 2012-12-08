@@ -81,9 +81,9 @@ then
 			fi
 		fi
 
-		if [ "$TIMEKEEPER_WORK_ID" == "" ];
+		if [ "$TIMEKEEPER_ISSUE_ID" == "" ];
 		then
-			TIMEKEEPER_WORK_ID=${current_job/${current_job%%#[0-9]*}/}
+			TIMEKEEPER_ISSUE_ID=${current_job/${current_job%%#[0-9]*}/}
 		fi
 		
 		# if it's readable/writable - carry on
@@ -99,9 +99,9 @@ then
 						elapsed_time=$((time-last_commit))
 
 						# if we have an issue id then write a ref, else just dump the raw time in the job.
-						if [ "$TIMEKEEPER_WORK_ID" != "" ]
+						if [ "$TIMEKEEPER_ISSUE_ID" != "" ]
 						then
-							timekeeper_string="refs $TIMEKEEPER_WORK_ID @$(($elapsed_time/(60*60)))h$((($elapsed_time/60)%60))"
+							timekeeper_string="refs $TIMEKEEPER_ISSUE_ID @$(($elapsed_time/(60*60)))h$((($elapsed_time/60)%60))"
 						else
 							timekeeper_string="($project.$job#$time#$elapsed_time)"
 						fi

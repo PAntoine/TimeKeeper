@@ -178,6 +178,33 @@ g:TimeKeeperStartOnLoad								*g:TimeKeeperStartOnLoad*
 Start the TimeKeeper on vim load, this should not be done before the default file has
 been created by running the start.
 
+If you are using the git-hooks the following environment variables can be set
+to change the way that they behave, they do not need to be set as the defaults
+are sensible.
+
+TIMEKEEPER_DONT_TRACK	[0]							*TIMEKEEPER_DONT_TRACK*
+If this is set to 1, then the commit time will not be added to the end of the
+commit message. 
+
+TIMEKEEPER_TIMESHEET	[""]						*TIMEKEEPER_TIMESHEET*
+If you have changed g:TimeKeeperFileName this variable should be set to match,
+the sensible way to handle this would be to set this value and in the .vimrc
+set g:TimeKeeperFileName to this value, i.e.:
+
+    let gt:TimeKeeperFileName = $TIMEKEEPER_TIMESHEET
+
+This value does not need to be set.
+
+TIMEKEEPER_ISSUE_ID		[""]						*TIMEKEEPER_ISSUE_ID*
+If you have not mangled your branch names to add the issue number to the end
+you can set the issue number using this variable. You need to place the issue
+id in this variable in the format that is requires. For Redmine the format
+should be:
+
+    export TIMEKEEPER_ISSUE_ID="#499"
+
+This will then add the message as detailed below.
+
 ==============================================================================
 6. Git Integration                               *TimeKeeper-git-integration*
 
@@ -205,8 +232,10 @@ of the commit:
 
    refs #499 @12h49
 
-This will allow for your time tracking app to pick this up. If it does not have the
-job_id set then the following will be added to the commit:
+If you don't/can't add the issue number to the end if the branch name you can set
+the |TIMEKEEPER_ISSUE_ID| variable and it will do the same thing. This will allow
+for your time tracking app to pick this up. If it does not have the issue id set
+then the following will be added to the commit:
 
    (project_name.job_name#45312334#46140)
 
@@ -217,11 +246,30 @@ repository, you can use this as you see fit to update your time tracking.
 Also it will only update the time if the timekeeper file is read/writable to
 it can update it at the end and stop adding the same time over again.
 
+To set up the Git hooks you will need to do the following in the root directory of the git
+repository.
+
+    ln -s ~/.vim/githooks/prepare-commit-msg .git/hooks/prepare-commit-msg
+    ln -s ~/.vim/githooks/post-commit .git/hooks/post-commit
+
+On Windows (not tested) you will need to copy them into hooks directory.
+
+The above assumes you have these plugins installed locally, else you will need to amend the
+source of the plugin, also it assumes that you don't already have these hooks, if you do then
+you will need to integrate these with your current hooks. I assume just adding:
+
+   .sh ~/.vim/githooks/prepare-commit-msg $1 $2 $3 
+
+to the end of your current prepare-commit-msg (and do similar for post) will do the job you
+need.
+
+
 ==============================================================================
 7. History                                       *TimeKeeper-history*
 
   1.0.0: November 21. 2012:
          PA: Initial release.
+
   1.1.0: December 13. 2012:
          PA:  Added in git pre-post commit hooks.
          Also changed the way that files are handled and added in a column for
