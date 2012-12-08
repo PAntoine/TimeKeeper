@@ -58,7 +58,7 @@
 "                                            will create a note with the ref of you
 "                                            guessed it "timekeeper". It will try and
 "                                            keep the entries separate as it will use
-"                                            the user.email as the key for the entries.
+"                                            the user.email as the key for the entries.[0]
 "           g:TimeKeeperGitNoteUpdateTimeSec The time that the git notes will be updated
 "                                            this is not that important as it re-writes
 "                                            the note, but will cause you git history
@@ -125,7 +125,7 @@ if !exists("s:TimeKeeperPlugin")
 	endif
 
 	if !exists("g:TimeKeeperUseGitNotes")				" If vim is in a git repository add git notes with the time periodically
-		let g:TimeKeeperUseGitNotes = 1
+		let g:TimeKeeperUseGitNotes = 0
 	endif
 
 	if !exists("g:TimeKeeperGitNoteUpdateTimeSec")
@@ -150,6 +150,7 @@ if !exists("s:TimeKeeperPlugin")
 	let s:current_job = g:TimeKeeperDefaultJob
 	let s:current_project = g:TimeKeeperDefaultProject
 	let s:current_server = ''
+	let s:file_update_time = localtime()
 
 	" needed to hold the start dir so the :cd changes can be detected
 	let s:current_dir = getcwd()
@@ -287,18 +288,25 @@ endfunction
 function! TimeKeeper_SaveTimeSheet(create)
 	let result = 0
 
-	" only update the file if we are the server else leave it alone
+	" Only update the file if we are the server else leave it alone
 	if s:current_server == ''
 		if !a:create && !filewritable(g:TimeKeeperFileName)
 			call s:TimeKeeper_ReportError("timesheet file is not writable")
 		else
-			let output = []
+			" check to make sure the timesheet has not been updated elsewhere (i.e. the githooks)
+			if s:file_update_time < getftime(g:TimeKeeperFileName)
+				call s:TimeKeeper_LoadTimeSheet()
+			endif
 
 			" Ok, lets build the output List of lists that need to be written to the file.
+			let output = []
+
 			for project_name in keys(s:project_list)
 				for job_name in keys(s:project_list[project_name].job)
 					let line = project_name . ',' . job_name . ',' . 
-						\ s:project_list[project_name].job[job_name].start_time . ',' . s:project_list[project_name].job[job_name].total_time
+						\ s:project_list[project_name].job[job_name].start_time . ',' .
+						\ s:project_list[project_name].job[job_name].total_time . ',' .
+						\ s:project_list[project_name].job[job_name].last_commit_time
 					call add(output,line)
 				endfor
 			endfor
@@ -306,7 +314,7 @@ function! TimeKeeper_SaveTimeSheet(create)
 			" write the result to a file
 			call writefile(output,g:TimeKeeperFileName)
 
-			let s:last_update_time = localtime()
+			let s:file_update_time = localtime()
 		endif
 	endif
 endfunction
@@ -419,22 +427,7 @@ function! s:TimeKeeper_FindServer()
 	endif
 
 	if (s:current_server == '') && (old_server != s:current_server)
-		" Need to load the timesheet as we are now the server - keep the current time
-		" as this is a race condition and we are voting for what we know, and assume there is
-		" only one editor in the current job as this needs more complex code to handle.
-		if has_key(s:project_list,s:current_project) && has_key(s:project_list[s:current_project],s:current_job)
-			let current_proj_time = s:project_list[s:current_project].total_time
-			let current_job_time = s:project_list[s:current_project].job[s:current_job].total_time
-		endif
-
-		" blow away the old db, and load a fresh one.
-		let s:project_list = {}
-		call s:TimeKeeper_LoadTimeSheet()
-
-		if exists('current_job_time')
-			let s:project_list[s:current_project].total_time = current_proj_time
-			let s:project_list[s:current_project].job[s:current_job].total_time = current_job_time
-		endif
+		call s:TimeKeeper_UpdateTimeSheet()
 	endif
 endfunction
 "																			}}}
@@ -470,7 +463,7 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	" check to see if it is a new job that we are dealing with
 	if !has_key(s:project_list[a:project_name].job,a:job_name)
 
-		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime() }
+		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime(), 'last_commit_time': localtime() }
 	endif
 
 	return s:project_list[a:project_name].job[a:job_name]
@@ -492,12 +485,12 @@ endfunction
 "	nothing
 "
 function! s:TimeKeeper_ImportJob(values)
-
-	if len(a:values) == 4
+	if len(a:values) == 5
 		" set the job values
 		let job = s:TimeKeeper_AddJob(a:values[0],a:values[1])
-		let job.start_time = a:values[2]
-		let job.total_time = a:values[3]
+		let job.start_time		 = a:values[2]
+		let job.total_time		 = a:values[3]
+		let job.last_commit_time = a:values[4]
 
 		"set the project totals
 		let s:project_list[a:values[0]].total_time	+= a:values[3]
@@ -648,9 +641,42 @@ function! s:TimeKeeper_LoadTimeSheet()
 				let s:user_last_update_time = localtime()
 			endif
 		endif
+
+		let s:file_update_time = localtime()
 	endif
 
 	return result
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_UpdateTimeSheet()  								{{{
+"
+" This function will reload the timesheet but will keep the current value of
+" the current job. 
+"
+" This is a race condition and we are voting for what we know, and assume
+" there is only one editor in the current job, as this case needs more complex
+" code to handle keeping the times in order.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_UpdateTimeSheet()
+	if has_key(s:project_list,s:current_project) && has_key(s:project_list[s:current_project],s:current_job)
+		let current_proj_time = s:project_list[s:current_project].total_time
+		let current_job_time = s:project_list[s:current_project].job[s:current_job].total_time
+	endif
+
+	" blow away the old db, and load a fresh one.
+	let s:project_list = {}
+	call s:TimeKeeper_LoadTimeSheet()
+
+	if exists('current_job_time')
+		let s:project_list[s:current_project].total_time = current_proj_time
+		let s:project_list[s:current_project].job[s:current_job].total_time = current_job_time
+	endif
 endfunction
 "																			}}}
 " FUNCTION: s:TimeKeeper_RequestCreate()  									{{{

@@ -1,0 +1,86 @@
+#!/bin/bash
+#---------------------------------------------------------------------------------
+#
+#  ,--------.,--.                 ,--. ,--.                                   
+#  '--.  .--'`--',--,--,--. ,---. |  .'   / ,---.  ,---.  ,---.  ,---. ,--.--.
+#     |  |   ,--.|        || .-. :|  .   ' | .-. :| .-. :| .-. || .-. :|  .--'
+#     |  |   |  ||  |  |  |\   --.|  |\   \\   --.\   --.| '-' '\   --.|  |   
+#     `--'   `--'`--`--`--' `----'`--' '--' `----' `----'|  |-'  `----'`--'   
+#
+#    file: post-commit
+#    desc: This is a git commit hook that will amend the timekeeper timesheet
+#          to let it know that a commit has happened and time as been assigned to
+#          the project.
+#
+#          All it does is change the last commit elapsed time to the same value
+#          as the total time.
+#
+#  author: 
+#    date: 08/12/2012 10:52:42
+#---------------------------------------------------------------------------------
+#                     Copyright (c) 2012 Peter Antoine
+#                            All rights Reserved.
+#                    Released Under the Artistic Licence
+#---------------------------------------------------------------------------------
+
+if [ "$TIMEKEEPER_DONT_TRACK" != "1" ];
+then
+	if [ "$TIMEKEEPER_TIMESHEET" == "" ];
+	then
+		# check for local file first
+		if [[ -w timekeeper.tmk && -r timekeeper.tmk ]];
+		then
+			TIMEKEEPER_TIMESHEET="timekeeper.tmk"
+		else
+			# if local not found the search for global 
+			if [[ -w "$HOME/.timekeeper.tmk" && -r "$HOME/.timekeeper.tmk" ]];
+			then
+				TIMEKEEPER_TIMESHEET="$HOME/.timekeeper.tmk"
+			fi
+		fi
+	fi
+
+	if [ "$TIMEKEEPER_WORK_ID" == "" ];
+	then
+		TIMEKEEPER_WORK_ID=${current_job/${current_job%%#[0-9]*}/}
+	fi
+
+	# if it's readable/writable - carry on
+	if [[ -w "$TIMEKEEPER_TIMESHEET" && -r "$TIMEKEEPER_TIMESHEET" ]];
+	then
+		current_project=$(basename `git rev-parse --show-toplevel`)
+		current_job=`git rev-parse --abbrev-ref HEAD`
+
+		if [ "$TIMEKEEPER_TIMESHEET" == "" ];
+		then
+			TIMEKEEPER_TIMESHEET="$HOME/.timekeeper.tmk"
+		fi
+
+		index=0
+
+		# read the file
+		while IFS=, read -r project job start time last_commit;
+		do
+			string=$project,$job,$start,$time,$last_commit
+
+			# find the current project
+			if [ "$current_project" = "$project" ];
+			then
+				if [ "$current_job" = "$job" ];
+				then
+					# set the time to the current time in the file
+					string=$project,$job,$start,$time,$time
+				fi
+			fi;
+
+			timekeeper_file[$index]="$string"
+			index=$(($index+1))
+		done < "$TIMEKEEPER_TIMESHEET"
+
+		# write back the timekeeper file
+		for i in "${timekeeper_file[@]}"
+		do
+		  echo "$i" >> "$TIMEKEEPER_TIMESHEET"
+		done
+	fi
+fi

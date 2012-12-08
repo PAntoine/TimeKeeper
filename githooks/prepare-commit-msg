@@ -45,6 +45,9 @@
 #         seconds since the last commit. So the time is still tracked in the
 #         repository.
 #
+#         It will only update the time if the timekeeper file is read/writable to
+#         it can update it at the end and stop adding the same time over again.
+#
 # Author: pantoine
 # Date  : 08/12/2012 08:22:20
 #---------------------------------------------------------------------------------
@@ -53,58 +56,75 @@
 #                    Released Under the Artistic Licence
 #---------------------------------------------------------------------------------
 
-timekeeper_string=''
+if [ "$TIMEKEEPER_DONT_TRACK" != "1" ];
+then
+	timekeeper_string=''
 
-function TimeKeeper_GetTimeString ()
-{
-	# retrieve the current job name from the git repository
-	current_project=$(basename `git rev-parse --show-toplevel`)
-	current_job=`git rev-parse --abbrev-ref HEAD`
+	function TimeKeeper_GetTimeString ()
+	{
+		# retrieve the current job name from the git repository
+		current_project=$(basename `git rev-parse --show-toplevel`)
+		current_job=`git rev-parse --abbrev-ref HEAD`
 
-	if [ "$TIMEKEEPER_SPREADSHEET" == "" ];
-	then
-		TIMEKEEPER_SPREADSHEET="$HOME/.timekeeper.tmk"
-	fi
-
-	if [ "$TIMEKEEPER_WORK_ID" == "" ];
-	then
-		TIMEKEEPER_WORK_ID=${current_job/${current_job%%#[0-9]*}/}
-	fi
-
-	# read in the timesheet file
-	while IFS=, read -r project job start time last_commit;
-	do
-		if [ "$current_project" = "$project" ];
+		if [ "$TIMEKEEPER_TIMESHEET" == "" ];
 		then
-			if [ "$current_job" = "$job" ];
+			# check for local file first
+			if [[ -w timekeeper.tmk && -r timekeeper.tmk ]];
 			then
-				elapsed_time=$((time-last_commit))
-
-				# if we have an issue id then write a ref, else just dump the raw time in the job.
-				if [ "$TIMEKEEPER_WORK_ID" != "" ]
+				TIMEKEEPER_TIMESHEET="timekeeper.tmk"
+			else
+				# if local not found the search for global 
+				if [[ -w "$HOME/.timekeeper.tmk" && -r "$HOME/.timekeeper.tmk" ]];
 				then
-					timekeeper_string="refs $TIMEKEEPER_WORK_ID @$(($elapsed_time/(60*60)))h$((($elapsed_time/60)%60))"
-				else
-					timekeeper_string="($project.$job#$time#$elapsed_time)"
+					TIMEKEEPER_TIMESHEET="$HOME/.timekeeper.tmk"
 				fi
 			fi
-		fi;
-	done < "$TIMEKEEPER_SPREADSHEET"
-}
+		fi
 
-case "$2" in
-  squash)	;;
-  merge)	;;
-  message)
-  	TimeKeeper_GetTimeString
-  	echo "$timekeeper_string" >> "$1" ;;
-  commit)
-  	TimeKeeper_GetTimeString
-    echo "$timekeeper_string" >> "$1" ;;
-  "")
-  	TimeKeeper_GetTimeString
-    echo "$timekeeper_string" >> "$1" ;;
-  *)  ;;
-esac
+		if [ "$TIMEKEEPER_WORK_ID" == "" ];
+		then
+			TIMEKEEPER_WORK_ID=${current_job/${current_job%%#[0-9]*}/}
+		fi
+		
+		# if it's readable/writable - carry on
+		if [[ -w "$TIMEKEEPER_TIMESHEET" && -r "$TIMEKEEPER_TIMESHEET" ]];
+		then
+			# read in the timesheet file
+			while IFS=, read -r project job start time last_commit;
+			do
+				if [ "$current_project" = "$project" ];
+				then
+					if [ "$current_job" = "$job" ];
+					then
+						elapsed_time=$((time-last_commit))
 
+						# if we have an issue id then write a ref, else just dump the raw time in the job.
+						if [ "$TIMEKEEPER_WORK_ID" != "" ]
+						then
+							timekeeper_string="refs $TIMEKEEPER_WORK_ID @$(($elapsed_time/(60*60)))h$((($elapsed_time/60)%60))"
+						else
+							timekeeper_string="($project.$job#$time#$elapsed_time)"
+						fi
+					fi
+				fi;
+			done < "$TIMEKEEPER_TIMESHEET"
+		fi
+	}
+
+	# Now update the commit message with the time
+	case "$2" in
+	  squash)	;;
+	  merge)	;;
+	  message)
+		TimeKeeper_GetTimeString
+		echo "$timekeeper_string" >> "$1" ;;
+	  commit)
+		TimeKeeper_GetTimeString
+		echo "$timekeeper_string" >> "$1" ;;
+	  "")
+		TimeKeeper_GetTimeString
+		echo "$timekeeper_string" >> "$1" ;;
+	  *)  ;;
+	esac
+fi
 
