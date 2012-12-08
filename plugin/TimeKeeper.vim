@@ -79,6 +79,10 @@
 "    Version   Author Date        Changes
 "    -------   ------ ----------  -------------------------------------------------
 "    1.0.0     PA     21.11.2012  Initial revision
+"    1.1.0     PA     13.12.2012  Added in git pre-post commit hooks.
+"                                 Also changed the way that files are handled and
+"                                 added in a column for handling the diffs between
+"                                 the last time that a commit time was updated.
 "																				}}}
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.

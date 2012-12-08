@@ -1,4 +1,4 @@
-*timekeeper.txt*  For Vim version 7.0 Last change: 2012 November 22
+*timekeeper.txt*  For Vim version 7.0 Last change: 2012 December 8
 
 
 ,--------.,--.                 ,--. ,--.                                    ~
@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     Novenmber 21, 2012
-Version:  1.0.0
+Date:     December 8, 2012
+Version:  1.1.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -26,7 +26,8 @@ For instructions on installing this file, type:
     3. Usage..................................: |TimeKeeper-usage|
     4. Useful TimeKeeper Functions............: |TimeKeeper-functions|
     5. Configuration..........................: |TimeKeeper-config|
-    6. History................................: |TimeKeeper-history|
+    6. Git Integration........................: |TimeKeeper-git-integration|
+    7. History................................: |TimeKeeper-history|
 
 ==============================================================================
 2. Description                                   *TimeKeeper-description*
@@ -166,7 +167,7 @@ g:TimeKeeperUseGitNotes								*g:TimeKeeperUseGitNotes*
 		If this flag is set then timekeeper will create a gitnote in the current
 		branch if the editor is in a git repository. It will create a gitnote with the
 		ref of you guessed it "timekeeper". It will try and keep the entries separate
-		as it will use the user.email as the key for the entries. [1]
+		as it will use the user.email as the key for the entries. [0]
 
 g:TimeKeeperGitNoteUpdateTimeSec					*g:TimeKeeperGitNoteUpdateTimeSec*
 		The time that the git notes will be updated this is not that important as it
@@ -177,11 +178,53 @@ g:TimeKeeperStartOnLoad								*g:TimeKeeperStartOnLoad*
 Start the TimeKeeper on vim load, this should not be done before the default file has
 been created by running the start.
 
+==============================================================================
+6. Git Integration                               *TimeKeeper-git-integration*
+
+There are two git hooks included with the TimeKeeper system, a
+`prepare-commit-msg` hook and a `post-commit` hook. These hooks will
+add the time elapsed between commits to the commit.
+
+The prepare-commit-msg will write the time elasped between the total-time
+and the last time the commit was done. The last commit-time is updated when
+the post-commit hook is run. So it is only updated when the commit completes.
+
+The prepare-commit-msg will add the minutes since the last commit was done.
+
+Some random minutes may go missing - rounding errors, but this is not
+that accurate a system, you probably need something else if you really
+need seconds accuracy.
+
+The hook can also add a reference to the current job_id number if the branch
+name is correctly formatted. If the branch name is formatted as follows:
+
+    branch_name#499
+
+with the job_id == 499, this will produce the following at the bottom
+of the commit:
+
+   refs #499 @12h49
+
+This will allow for your time tracking app to pick this up. If it does not have the
+job_id set then the following will be added to the commit:
+
+   (project_name.job_name#45312334#46140)
+
+which is the total project time in seconds, followed by the number of
+seconds since the last commit. So the time is still tracked in the
+repository, you can use this as you see fit to update your time tracking.
+
+Also it will only update the time if the timekeeper file is read/writable to
+it can update it at the end and stop adding the same time over again.
 
 ==============================================================================
-6. History                                       *TimeKeeper-history*
+7. History                                       *TimeKeeper-history*
 
   1.0.0: November 21. 2012:
          PA: Initial release.
+  1.1.0: December 13. 2012:
+         PA:  Added in git pre-post commit hooks.
+         Also changed the way that files are handled and added in a column for
+		 handling the diffs between the last time that a commit time was updated.
 
 vim: ts=4 ft=help tw=78
