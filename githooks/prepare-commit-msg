@@ -54,6 +54,7 @@
 #---------------------------------------------------------------------------------
 
 timekeeper_string=''
+echo ---------------- called ---------------
 
 function TimeKeeper_GetTimeString ()
 {
@@ -92,22 +93,22 @@ function TimeKeeper_GetTimeString ()
 	done < "$TIMEKEEPER_SPREADSHEET"
 }
 
-# Now output the new commit text at the end of the message
-# It's a little annoying, I should find the first non-blank line and add it
-# there, but that is a little too much.
 case "$2" in
   squash)	;;
   merge)	;;
   message)
+  	echo ---------------- message ---------------
   	TimeKeeper_GetTimeString
   	echo "$timekeeper_string" >> "$1" ;;
   commit)
+  	echo ---------------- commit ---------------
   	TimeKeeper_GetTimeString
     echo "$timekeeper_string" >> "$1" ;;
   "")
+  	echo ---------------- empty --------------- $timekeeper_string
   	TimeKeeper_GetTimeString
     echo "$timekeeper_string" >> "$1" ;;
-  *)  ;;
+  *) echo "--- this one" >> "$1" ;;
 esac
 
 

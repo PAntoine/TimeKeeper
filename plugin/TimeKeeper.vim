@@ -1,6 +1,13 @@
 " vim: ts=4 tw=4 fdm=marker :
 " ---------------------------------------------------------------------------------
 "     file: TimeKeeper
+" 
+"  ,--------.,--.                 ,--. ,--.                                   
+"  '--.  .--'`--',--,--,--. ,---. |  .'   / ,---.  ,---.  ,---.  ,---. ,--.--.
+"     |  |   ,--.|        || .-. :|  .   ' | .-. :| .-. :| .-. || .-. :|  .--'
+"     |  |   |  ||  |  |  |\   --.|  |\   \\   --.\   --.| '-' '\   --.|  |   
+"     `--'   `--'`--`--`--' `----'`--' '--' `----' `----'|  |-'  `----'`--'   
+"
 "     desc: This plugin will keep track of the time spent in the editor. Will
 "           try and workout how much time is being spent on the current activity.
 "           It will allocate the time that is spent on the current task.
@@ -122,7 +129,7 @@ if !exists("s:TimeKeeperPlugin")
 	endif
 
 	if !exists("g:TimeKeeperGitNoteUpdateTimeSec")
-		let g:TimeKeeperGitNoteUpdateTimeSec = 60 * 60		" Update the git not once an hour - This will only be updated when the timesheet is updates.
+		let g:TimeKeeperGitNoteUpdateTimeSec = 60 * 60		" Update the git note once an hour - This will only be updated when the timesheet is updates.
 	endif
 
 	" Set the flag start on Load
