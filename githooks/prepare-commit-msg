@@ -97,11 +97,12 @@ then
 					if [ "$current_job" = "$job" ];
 					then
 						elapsed_time=$(($time-$last_commit))
+						echo "elapsed_time: $elapsed_time  time  $time last $last_commit"
 
 						# if we have an issue id then write a ref, else just dump the raw time in the job.
 						if [ "$TIMEKEEPER_ISSUE_ID" != "" ]
 						then
-							timekeeper_string="refs $TIMEKEEPER_ISSUE_ID @$(($elapsed_time/(60*60)))h$((($elapsed_time/60)%60))"
+							timekeeper_string="refs $TIMEKEEPER_ISSUE_ID @$(($elapsed_time/3600))h$((($elapsed_time/60)%60))"
 						else
 							timekeeper_string="($project.$job#$time#$elapsed_time)"
 						fi

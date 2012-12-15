@@ -73,9 +73,17 @@ then
 		done < "$TIMEKEEPER_TIMESHEET"
 
 		# write back the timekeeper file
+		index=0
 		for i in "${timekeeper_file[@]}"
 		do
-		  echo "$i" >> "$TIMEKEEPER_TIMESHEET"
+			if [ $index == 0 ];
+			then
+				echo "$i" > "$TIMEKEEPER_TIMESHEET"
+			else
+				echo "$i" >> "$TIMEKEEPER_TIMESHEET"
+			fi
+
+			index=1
 		done
 	fi
 fi
