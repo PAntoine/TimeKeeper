@@ -467,7 +467,7 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	" check to see if it is a new job that we are dealing with
 	if !has_key(s:project_list[a:project_name].job,a:job_name)
 
-		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime(), 'last_commit_time': localtime() }
+		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime(), 'last_commit_time': 0 }
 	endif
 
 	return s:project_list[a:project_name].job[a:job_name]
