@@ -1,4 +1,4 @@
-*timekeeper.txt*  For Vim version 7.0 Last change: 2012 December 8
+*timekeeper.txt*  For Vim version 7.3
 
 
 ,--------.,--.                 ,--. ,--.                                    ~
@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     December 8, 2012
-Version:  1.1.0
+Date:     January 5, 2013
+Version:  1.1.4
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -267,12 +267,19 @@ need.
 ==============================================================================
 7. History                                       *TimeKeeper-history*
 
-  1.0.0: November 21. 2012:
-         PA: Initial release.
-
-  1.1.0: December 13. 2012:
-         PA:  Added in git pre-post commit hooks.
-         Also changed the way that files are handled and added in a column for
-		 handling the diffs between the last time that a commit time was updated.
+Version   Author Date        Changes
+-------   ------ ----------  -------------------------------------------------
+1.0.0     PA     21.11.2012  Initial revision
+1.1.0     PA     13.12.2012  Added in git pre-post commit hooks.
+                             Also changed the way that files are handled and
+                             added in a column for handling the diffs between
+                             the last time that a commit time was updated.
+1.1.1     PA     xx.12.2012  Fixed post-commit hook duplicating the file on
+                             write back.
+1.1.2     PA     xx.12.2012  Fixed plugin as first commit on a new job did not
+                             did not write the time correctly.
+1.1.3     PA     01.01.2013  Redmine did not like 0 hours format so changed to
+                             add minutes if less then an hour.
+1.1.4     PA     05.01.2013  There is only 24 hours in a day. :)
 
 vim: ts=4 ft=help tw=78

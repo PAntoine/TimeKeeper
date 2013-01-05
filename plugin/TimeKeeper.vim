@@ -75,15 +75,6 @@
 "                             All rights Reserved.
 "                     Released Under the Artistic Licence
 " ---------------------------------------------------------------------------------
-"{{{ Revision History
-"    Version   Author Date        Changes
-"    -------   ------ ----------  -------------------------------------------------
-"    1.0.0     PA     21.11.2012  Initial revision
-"    1.1.0     PA     13.12.2012  Added in git pre-post commit hooks.
-"                                 Also changed the way that files are handled and
-"                                 added in a column for handling the diffs between
-"                                 the last time that a commit time was updated.
-"																				}}}
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
@@ -235,7 +226,7 @@ endfunction
 function! TimeKeeper_GetCurrentJobString()
 	
 	let el_time_mins  = (s:project_list[s:current_project].job[s:current_job].total_time / 60) % 60
-	let el_time_hours = (s:project_list[s:current_project].job[s:current_job].total_time / (60*60)) % 60
+	let el_time_hours = (s:project_list[s:current_project].job[s:current_job].total_time / (60*60)) % 24
 	let el_time_days  = (s:project_list[s:current_project].job[s:current_job].total_time / (60*60*24))
 	
 	return s:current_project . '.' . s:current_job . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
@@ -259,7 +250,7 @@ function! TimeKeeper_GetAllJobStrings()
 	for project_name in keys(s:project_list)
 		for job_name in keys(s:project_list[project_name].job)
 			let el_time_mins  = (s:project_list[project_name].job[job_name].total_time / 60) % 60
-			let el_time_hours = (s:project_list[project_name].job[job_name].total_time / (60*60)) % 60
+			let el_time_hours = ((s:project_list[project_name].job[job_name].total_time / (60*60)) % 24)
 			let el_time_days  = (s:project_list[project_name].job[job_name].total_time / (60*60*24))
 	
 			let line = project_name . '.' . job_name . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
