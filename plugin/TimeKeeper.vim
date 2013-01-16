@@ -146,6 +146,8 @@ if !exists("s:TimeKeeperPlugin")
 	let s:current_project = g:TimeKeeperDefaultProject
 	let s:current_server = ''
 	let s:file_update_time = localtime()
+	let s:start_editor_time = localtime()
+	let s:start_tracking_time = 0
 
 	" needed to hold the start dir so the :cd changes can be detected
 	let s:current_dir = getcwd()
@@ -203,6 +205,8 @@ function! TimeKeeper_StartTracking()
 
 	call s:TimeKeeper_AddJob(s:current_project,s:current_job)
 
+	let s:start_tracking_time = s:project_list[s:current_project].job[s:current_job].total_time
+
 	au TimeKeeper CursorHoldI * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper CursorHold  * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
@@ -225,11 +229,67 @@ endfunction
 "
 function! TimeKeeper_GetCurrentJobString()
 	
-	let el_time_mins  = (s:project_list[s:current_project].job[s:current_job].total_time / 60) % 60
-	let el_time_hours = (s:project_list[s:current_project].job[s:current_job].total_time / (60*60)) % 24
-	let el_time_days  = (s:project_list[s:current_project].job[s:current_job].total_time / (60*60*24))
+	return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].job[s:current_job].total_time)
+
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_GetElapsedTime() 									{{{
+"  
+" This function will return the time since the time capturing was started.
+"
+" vars:
+"      none.
+" returns:
+"      string = "<project>.<job>#dd:hh:mm"
+"
+function! TimeKeeper_GetElapsedTime()
 	
-	return s:current_project . '.' . s:current_job . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
+	return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(localtime() - s:start_editor_time)
+
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_GetProjectTimeString() 								{{{
+"  
+" This function will return the current projects time.
+"
+" vars:
+"      none.
+" returns:
+"      string = "<project>#dd:hh:mm"
+"
+function! TimeKeeper_GetProjectTimeString()
+	
+	return s:current_project . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].total_time)
+
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_GetJobStartTimeString() 								{{{
+"  
+" This function will return the current projects time.
+"
+" vars:
+"      none.
+" returns:
+"      string = "<project>#dd:hh:mm"
+"
+function! TimeKeeper_GetJobStartTimeString()
+	
+	return s:current_project . '.' . s:current_job . '#' . strftime("%Y/%m/%d-%H:%M",s:project_list[s:current_project].job[s:current_job].start_time)
+
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_GetJobSessionTime() 									{{{
+"  
+" This function will return the time added this session.
+"
+" vars:
+"      none.
+" returns:
+"      string = "<project>#dd:hh:mm"
+"
+function! TimeKeeper_GetJobSessionTime()
+	
+	return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].job[s:current_job].total_time - s:start_tracking_time)
 
 endfunction
 "																			}}}
@@ -333,7 +393,32 @@ function! TimeKeeper_IsServer()
 endfunction
 "																			}}}
 " INTERNAL FUNCTIONS
+" FUNCTION: s:TimeKeeper_GetTimeString(time) 								{{{
+"  
+" This function will return the current job string and the time that the current
+" job has taken so far.
+"
+" vars:
+"      none.
+" returns:
+"      string = "<project>.<job>#dd:hh:mm"
+"
+function! s:TimeKeeper_GetTimeString(time)
+	
+	let el_time_mins  = (a:time / 60) % 60
+	let el_time_hours = (a:time / (60*60)) % 24
+	let el_time_days  = (a:time / (60*60*24))
+	
+	if (el_time_mins < 10)
+		return el_time_days . ':' . el_time_hours . ':0' . el_time_mins
+	else
+		return el_time_days . ':' . el_time_hours . ':' . el_time_mins
+
+endfunction
+"																			}}}
 " FUNCTION: TimeKeeper_UpdateJob(project_name,job_name,time)				{{{
+"
+" NOTE: This job is not script local so it can be called remotely.
 "
 " This function will update a job with the time that has elapsed.
 "

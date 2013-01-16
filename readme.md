@@ -1,7 +1,7 @@
 TimeKeeper
 ==========
 
-Version 1.1.4
+Version 1.2.0
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -35,24 +35,6 @@ If you set up the git hooks that are provided, the timekeeper will also amend yo
 allow for the timetracking information to be added to the end of your commits. This is in the
 format that Redmine time tracking can read.
 
-Updating
---------
-
-IMPORTANT!!!!!
-
-If you are updating from 1.0.0 -> 1.1.0 you will need to edit the .timekeeper.tmk file as this
-has added a new column.
-
-You will need to run the following vim command on it:
-
-    :%s/$/,0/
-
-This will add the new column. If you do not do this it will lose the time on other jobs, but will
-keep the local time without problem.
-
-Also, the default for g:TimeKeeperUseGitNotes is not 0, as the commit method is easier to integrate
-with Redmine.
-
 Installation
 ------------
 
@@ -61,7 +43,7 @@ Simply copy the contents of the plugin directory to the plugin directory in your
 You can leave the configuration variables alone as these have sensible defaults and if you
 put the following line in your .vimrc the timekeeper will start when you start typing:
 
-  call TimeKeeper_StartTracking()
+    call TimeKeeper_StartTracking()
 
 And the should be it. Once you have done that once then you can set g:TimeKeeperStartOnLoad to
 1 and then TimeKeeper will start every time vim loads.

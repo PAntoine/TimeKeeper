@@ -10,7 +10,7 @@
                                                                             ~
 Author:	  Peter Antoine
 Date:     January 5, 2013
-Version:  1.1.4
+Version:  1.2.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -132,6 +132,38 @@ TimeKeeper_GetCurrentJobString()					*TimeKeeper_GetCurrentJobString()*
 		statusline to let you know what job the editor thinks you are on and
 		how much time you have spent on it.
 
+TimeKeeper_GetElapsedTime()							*TimeKeeper_GetElapsedTime()*
+ 
+		This function will return the time since the time capturing was started.
+		This is the time since the editor was started. This will not equal the
+		session time as it will include time away from the keyboard.
+
+		The format of the string is: <project>.<job>#dd:hh:mm
+
+TimeKeeper_GetProjectTimeString()					*TimeKeeper_GetProjectTimeString()*
+ 
+		This function will return the current projects time. This is the time
+		that has been spent on this task ON THIS COMPUTER.
+
+		The format of the string is: <project>#dd:hh:mm
+
+TimeKeeper_GetJobStartTimeString()					*TimeKeeper_GetJobStartTimeString()*
+ 
+		This function will return the current projects start time. This is the
+		time that the project was started on this computer. It does not track
+		or sync the time across computers.
+
+		The format of the string is: <project>.<job>#YYYY/MM/DD=hh:mm
+
+TimeKeeper_GetJobSessionTime()						*TimeKeeper_GetJobSessionTime()*
+ 
+		This function will return the time added this session. This is the actual
+		working time. It will be less than the elapsed time (unless you have been
+		typing away furiously and don't drink coffee).
+
+		The format of the string is: <project>#dd:hh:mm
+
+
 ==============================================================================
 5. Configuration									*TimeKeeper-configuration*
 
@@ -205,6 +237,11 @@ should be:
 
 This will then add the message as detailed below.
 
+TIMEKEEPER_OUTPUT_RAW_TIMESTAMP [0]					*TIMEKEEPER_OUTPUT_RAW_TIMESTAMP*
+If you are not using issue numbers then the commit will use a timestamp that
+has the just times. This forces the timestamp to just deliver the raw timestamps
+in seconds, rather than human readable timestamps.
+
 ==============================================================================
 6. Git Integration                               *TimeKeeper-git-integration*
 
@@ -236,6 +273,12 @@ If you don't/can't add the issue number to the end if the branch name you can se
 the |TIMEKEEPER_ISSUE_ID| variable and it will do the same thing. This will allow
 for your time tracking app to pick this up. If it does not have the issue id set
 then the following will be added to the commit:
+
+   (project_name.job_name - total:@200h49  commit:@12h49)
+
+If you would rather have the raw timestamp that was used in version 1.?.? then you
+can set the environment variable |TIMEKEEPER_OUTPUT_RAW_TIMESTAMP| then the commit
+timestamp will look like:
 
    (project_name.job_name#45312334#46140)
 
@@ -281,5 +324,7 @@ Version   Author Date        Changes
 1.1.3     PA     01.01.2013  Redmine did not like 0 hours format so changed to
                              add minutes if less then an hour.
 1.1.4     PA     05.01.2013  There is only 24 hours in a day. :)
+1.2.0     PA     16.01.2013  Added more reporting functions and also changed the
+                             default timestamp for the commit.
 
 vim: ts=4 ft=help tw=78

@@ -39,6 +39,10 @@
 #         which your time tracking app should pick up. If it does not have the
 #         time set then the following will be added to the commit:
 #
+#            project_name.job_name - total: @200.49 commit:@12h49
+#
+#         unless TIMEKEEPER_OUTPUT_RAW_TIMESTAMP == 1, then it will output:
+#
 #            project_name.job_name#45312334#46140
 #    
 #         which is the total project time in seconds, followed by the number of
@@ -97,19 +101,31 @@ then
 					if [ "$current_job" = "$job" ];
 					then
 						elapsed_time=$(($time-$last_commit))
-						echo "elapsed_time: $elapsed_time  time  $time last $last_commit"
+
+						if [ $elapsed_time -lt 3600 ];
+						then
+							elapsed_string="@$((($elapsed_time/60)%60))min"
+						else
+							elapsed_string="@$(($elapsed_time/3600))h$((($elapsed_time/60)%60))"
+						fi
+
+						if [ $time -lt 3600 ];
+						then
+							project_string="@$((($time/60)%60))min"
+						else
+							project_string="@$(($time/3600))h$((($time/60)%60))"
+						fi
 
 						# if we have an issue id then write a ref, else just dump the raw time in the job.
 						if [ "$TIMEKEEPER_ISSUE_ID" != "" ];
 						then
-							if [ $elapsed_time -lt 3600 ];
-							then
-								timekeeper_string="refs $TIMEKEEPER_ISSUE_ID @$((($elapsed_time/60)%60))min"
-							else
-								timekeeper_string="refs $TIMEKEEPER_ISSUE_ID @$(($elapsed_time/3600))h$((($elapsed_time/60)%60))"
-							fi
-						else
+							timekeeper_string="refs #$TIMEKEEPER_ISSUE_ID $elapsed_string"
+
+						elif [ "$TIMEKEEPER_OUTPUT_RAW_TIMESTAMP" == "1" ]
+						then
 							timekeeper_string="($project.$job#$time#$elapsed_time)"
+						else
+							timekeeper_string="($project.$job - total: $project_string commit: $elapsed_string)"
 						fi
 					fi
 				fi;
@@ -132,5 +148,7 @@ then
 		echo "$timekeeper_string" >> "$1" ;;
 	  *)  ;;
 	esac
+
+	echo $timekeeper_string
 fi
 
