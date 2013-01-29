@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     January 5, 2013
-Version:  1.2.0
+Date:     January 29, 2013
+Version:  1.3.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -107,6 +107,12 @@ you simply have to call the following function:
 
     call TimeKeeper_StopTracking()
 
+You can top up your time with extra time using the following function:
+
+	call TimeKeeper_AddAdditionalTime()
+
+It will add it to the current job.
+
 ==============================================================================
 4. Useful TimeKeeper Functions                      *TimeKeeper-functions*
 
@@ -163,6 +169,19 @@ TimeKeeper_GetJobSessionTime()						*TimeKeeper_GetJobSessionTime()*
 
 		The format of the string is: <project>#dd:hh:mm
 
+TimeKeeper_AddAdditionalTime()						*TimeKeeper_AddAdditionalTime()*
+
+		This function will prompt the user to allow for additional time to be added
+		to the current project. This will allow for the user to be able to add time
+		for meetings and things that cannot be tracked by the editor. The format for
+		the time string is the following:
+
+		    1.5 weeks
+
+		The time is specified as a simple real number (1,1.5,2.05,etc...) and the
+		units can be sepfied as m,min,mins,minutes,h,hour,hours, etc..., upto
+		weeks. (The regex is copied from another of my projects that is why it
+		goes up to weeks).
 
 ==============================================================================
 5. Configuration									*TimeKeeper-configuration*
@@ -326,5 +345,7 @@ Version   Author Date        Changes
 1.1.4     PA     05.01.2013  There is only 24 hours in a day. :)
 1.2.0     PA     16.01.2013  Added more reporting functions and also changed the
                              default timestamp for the commit.
+1.3.0     PA     29.01.2013  Added the function to add additional time to the
+                             current project.
 
 vim: ts=4 ft=help tw=78
