@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     January 29, 2013
-Version:  1.3.0
+Date:     January 30, 2013
+Version:  1.3.1
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -347,5 +347,7 @@ Version   Author Date        Changes
                              default timestamp for the commit.
 1.3.0     PA     29.01.2013  Added the function to add additional time to the
                              current project.
+1.3.1     PA     29.01.2013  Fixed minor issue in the GitHooks (## in refs)
+
 
 vim: ts=4 ft=help tw=78
