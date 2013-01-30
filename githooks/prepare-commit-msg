@@ -88,6 +88,7 @@ then
 		if [ "$TIMEKEEPER_ISSUE_ID" == "" ];
 		then
 			TIMEKEEPER_ISSUE_ID=${current_job/${current_job%%#[0-9]*}/}
+			TIMEKEEPER_ISSUE_ID=${TIMEKEEPER_ISSUE_ID:1}
 		fi
 		
 		# if it's readable/writable - carry on
