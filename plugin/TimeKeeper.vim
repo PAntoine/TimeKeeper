@@ -498,7 +498,7 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time)
 			call remote_expr(s:current_server,job_string)
 		catch /E449/
 			" find the server
-			call TimeKeeper_FindServer()
+			call s:TimeKeeper_FindServer()
 
 			if s:current_server == ''
 				" check to see if we need to update the timesheet file - as we are now master
