@@ -66,6 +66,13 @@
 "                                            too frequently.
 "			g:TimeKeeperWorkingWeekLength	 Number of days in the working week [5]
 "			g:TimeKeeperWorkingDaySecs		 Number of seconds in the working day [27000]
+"			g:TimeKeeperUseAnnotatedTags     If set to '1' then use the annotated tags
+"                                            to look for the current job name. It also
+"                                            will fall back to the branch name if the
+"                                            tag is not set.[0]
+"           g:TimeKeeperTagPrefix            This is the prefix to the tag that is to
+"                                            be removed before the job name is taken from
+"                                            the tag.
 "           g:TimeKeeperStartOnLoad          Start the TimeKeeper on vim load, this 
 "                                            should not be done before the default file
 "                                            has been created by running the start.
@@ -135,6 +142,14 @@ if !exists("s:TimeKeeperPlugin")
 
 	if !exists("g:TimeKeeperWorkingDaySecs")			" number of seconds in the working day
 		let g:TimeKeeperWorkingDaySecs = float2nr(7.5*60*60)
+	endif
+
+	if !exists("g:TimeKeeperUseAnnotatedTags")			" default to not using annotated tags
+		let g:TimeKeeperUseAnnotatedTags = 0
+
+		if !exists("g:TimeKeeperTagPrefix")				" the tag prefix for the tag versions
+			let g:TimeKeeperTagPrefix = ''
+		endif
 	endif
 
 	" Set the flag start on Load
@@ -702,16 +717,45 @@ endfunction
 "
 function! s:TimeKeeper_SetJobNameFromGitRepository()
 	let root = finddir(".git",expand('%:h'). "," . expand('%:p:h') . ";" . $HOME)
+	let s:current_job = ''
 	
 	" get the name of the directory will use as the project name
 	let s:current_project = substitute(fnamemodify(root,':p:h:h'),fnamemodify(root,':p:h:h:h') . '/','','')
 	
-    let branch = system("git branch 2> /dev/null | sed -e '/^[^*]/d' -e 's/* //'")
+	if g:TimeKeeperUseAnnotatedTags == 1
+    	let s:current_job = system("git describe --abbrev=0")
+		if len(split(s:current_job,"[\x0a\x0d]")) == 1
+			" ok, remove any newlines
+			let s:current_job = substitute(s:current_job,"[\x0a\x0d]",'','g')
 
-	if branch != ''
-        let s:current_job = substitute(branch, '\n', '', 'g')
-	else
-	    let s:current_job = ''
+			if g:TimeKeeperTagPrefix != ''
+				" remove the prefix - if it is found
+				let s:current_job = substitute(s:current_job,'^' . g:TimeKeeperTagPrefix,'','')
+			endif
+		else
+			" if more than on line then it is an error message
+			let s:current_job = ''
+		endif
+	endif
+
+	if s:current_job == ''
+		let branch = ''
+		let lines = split(system("git branch 2> /dev/null"),"[\x0a\x0d]")
+
+		" find the current branch
+		for line in lines
+			if line[0] == '*'
+				" remove the indicator
+				let branch = strpart(line,2)
+				break
+			endif
+		endfor
+
+		if branch != ''
+			let s:current_job = substitute(branch, '\n', '', 'g')
+		else
+			let s:current_job = ''
+		endif
 	endif
 endfunction
 "																			}}}

@@ -69,7 +69,25 @@ then
 		# retrieve the current job name from the git repository
 		current_project=$(basename `git rev-parse --show-toplevel`)
 		current_job=`git rev-parse --abbrev-ref HEAD`
-
+		current_tag=`git describe --always --abbrev=0`
+		task=${current_tag%%-*}
+		
+		# if the user has not specified a issue id, then check to see if the
+		# tag has one, if not check to see if the branch has one. Use the first
+		# one that is found.
+		if [ "$TIMEKEEPER_ISSUE_ID" == "" ];
+		then
+			TIMEKEEPER_ISSUE_ID=${task/${task%%#[0-9]*}/}
+		
+			if [ "$TIMEKEEPER_ISSUE_ID" != "" ];
+			then
+				current_job=$task
+			else
+				TIMEKEEPER_ISSUE_ID=${current_job/${current_job%%#[0-9]*}/}
+			fi
+			TIMEKEEPER_ISSUE_ID=${TIMEKEEPER_ISSUE_ID:1}
+		fi
+	
 		if [ "$TIMEKEEPER_TIMESHEET" == "" ];
 		then
 			# check for local file first
@@ -84,13 +102,7 @@ then
 				fi
 			fi
 		fi
-
-		if [ "$TIMEKEEPER_ISSUE_ID" == "" ];
-		then
-			TIMEKEEPER_ISSUE_ID=${current_job/${current_job%%#[0-9]*}/}
-			TIMEKEEPER_ISSUE_ID=${TIMEKEEPER_ISSUE_ID:1}
-		fi
-		
+	
 		# if it's readable/writable - carry on
 		if [[ -w "$TIMEKEEPER_TIMESHEET" && -r "$TIMEKEEPER_TIMESHEET" ]];
 		then
@@ -128,6 +140,8 @@ then
 						else
 							timekeeper_string="($project.$job - total: $project_string commit: $elapsed_string)"
 						fi
+
+						break
 					fi
 				fi;
 			done < "$TIMEKEEPER_TIMESHEET"
