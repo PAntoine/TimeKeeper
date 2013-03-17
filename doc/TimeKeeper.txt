@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     March 15, 2013
-Version:  1.4.0
+Date:     March 17, 2013
+Version:  1.4.1
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -250,7 +250,7 @@ If you have changed g:TimeKeeperFileName this variable should be set to match,
 the sensible way to handle this would be to set this value and in the .vimrc
 set g:TimeKeeperFileName to this value, i.e.:
 
-    let gt:TimeKeeperFileName = $TIMEKEEPER_TIMESHEET
+    let g:TimeKeeperFileName = $TIMEKEEPER_TIMESHEET
 
 This value does not need to be set.
 
@@ -268,6 +268,18 @@ TIMEKEEPER_OUTPUT_RAW_TIMESTAMP [0]					*TIMEKEEPER_OUTPUT_RAW_TIMESTAMP*
 If you are not using issue numbers then the commit will use a timestamp that
 has the just times. This forces the timestamp to just deliver the raw timestamps
 in seconds, rather than human readable timestamps.
+
+TIMEKEEPER_USE_ANNOTATED_TAG						*TIMEKEEPER_USE_ANNOTATED_TAG*
+If you are using annotated tags, set this then then commit hooks will also use
+the annotated tags. If the tag does not have an issue number but the branch does
+then the time will be allocated to the issue number that is taken from the branch.
+Again the sensible way to handle this would be as follows:
+
+	export TIMEKEEPER_USE_ANNOTATED_TAG=1
+
+and in the .vimrc:
+
+	let g:TimeKeeperUseAnnotatedTags = $TIMEKEEPER_USE_ANNOTATED_TAG
 
 ==============================================================================
 6. Git Integration                               *TimeKeeper-git-integration*
@@ -373,5 +385,6 @@ Version   Author Date        Changes
 1.4.0     PA     15.03.2013  Added support for annotated tags, also have removed
                              a call to sed that should make the thing easier to
 							 use on windows.
+1.4.1     PA     17.03.2013  Added the tag support to the git hooks.
 
 vim: ts=4 ft=help tw=78

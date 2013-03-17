@@ -45,16 +45,12 @@ then
 	then
 		current_project=$(basename `git rev-parse --show-toplevel`)
 		current_job=`git rev-parse --abbrev-ref HEAD`
-		current_tag=`git describe --always --abbrev=0`
 		
-		# if the user has not specified a issue id, then check to see if the
-		# tag has one, if not check to see if the branch has one. Use the first
-		# one that is found.
-		if [ "$TIMEKEEPER_ISSUE_ID" == "" ];
+		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ];
 		then
-			TIMEKEEPER_ISSUE_ID=${current_tag/${current_tag%%#[0-9]*}/}
+			current_tag=`git describe --always --abbrev=0`
 		
-			if [ "$TIMEKEEPER_ISSUE_ID" != "" ];
+			if [ "$current_tag" != "" ];
 			then
 				current_job=$current_tag
 			fi

@@ -146,7 +146,7 @@ if !exists("s:TimeKeeperPlugin")
 
 	if !exists("g:TimeKeeperUseAnnotatedTags")			" default to not using annotated tags
 		let g:TimeKeeperUseAnnotatedTags = 0
-
+	else
 		if !exists("g:TimeKeeperTagPrefix")				" the tag prefix for the tag versions
 			let g:TimeKeeperTagPrefix = ''
 		endif
