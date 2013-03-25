@@ -1,7 +1,7 @@
 TimeKeeper
 ==========
 
-Version 1.4.0
+Version 1.4.2
 
 A timekeeper plugin for vim to track you using automatically.
 

@@ -49,6 +49,7 @@ then
 		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ];
 		then
 			current_tag=`git describe --always --abbrev=0`
+			current_tag=${current_tag#$TIMEKEEPER_TAG_PREFIX}
 		
 			if [ "$current_tag" != "" ];
 			then
