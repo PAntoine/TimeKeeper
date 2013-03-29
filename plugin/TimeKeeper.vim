@@ -411,7 +411,7 @@ function! TimeKeeper_SaveTimeSheet(create)
 					let line = project_name . ',' . job_name . ',' . 
 						\ s:project_list[project_name].job[job_name].start_time . ',' .
 						\ s:project_list[project_name].job[job_name].total_time . ',' .
-						\ s:project_list[project_name].job[job_name].last_commit_time ',' .
+						\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
 						\ s:project_list[project_name].job[job_name].status
 					call add(output,line)
 				endfor
