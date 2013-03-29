@@ -89,7 +89,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin") || 1
+if !exists("s:TimeKeeperPlugin")
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
@@ -580,9 +580,10 @@ function! TimeKeeper_HandleKeypress(command)
 	
 								else
 									let s:project_list[prev_project].job[job_name].status = 'created'
-
 								endif
 						
+								call TimeKeeper_UpdateJob(prev_project,job_name,0)
+
 								break
 							endif
 						endfor
