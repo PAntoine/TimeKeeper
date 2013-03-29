@@ -87,9 +87,26 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin")
+if !exists("s:TimeKeeperPlugin") || 1
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
+
+	if !exists("g:TimeKeeperDontUserUnicode")
+		let s:TimeKeeperCompleted	= '✓'
+		let s:TimeKeeperAbandoned	= '✗'
+		let s:TimeKeeperStarted   	= '-'
+		let s:TimeKeeperCreated   	= ' '
+		let s:TimeKeeperClosed		= '▸'
+		let s:TimeKeeperOpen		= '▾'
+
+	else
+		let s:TimeKeeperCompleted	= '+'
+		let s:TimeKeeperAbandoned	= 'x'
+		let s:TimeKeeperStarted		= '-'
+		let s:TimeKeeperCreated		= ' '
+		let s:TimeKeeperClosed		= '-'
+		let s:TimeKeeperOpen		= '+'
+	endif
 
 	" global settings
 	if !exists("g:TimeKeeperAwayTimeSec")
@@ -450,6 +467,34 @@ function! TimeKeeper_AddAdditionalTime()
 	endif
 endfunction
 "																			}}}
+" FUNCTION: TimeKeeper_ToggleTaskWindow()  									{{{
+"
+" This function will toggle the task window.
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! TimeKeeper_ToggleTaskWindow()
+
+	if !exists("s:gitlog_loaded")
+		augroup TimeKeeper
+		call s:TimeKeeper_OpenTaskWindow()
+		let s:gitlog_loaded = 1
+	else
+		unlet s:gitlog_loaded
+
+		if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
+			exe "bwipeout __TimeKeeper_Task__"
+		endif
+
+		au! TimeKeeper
+		augroup! TimeKeeper
+	endif
+
+endfunction
+"																			}}}
 " INTERNAL FUNCTIONS
 " FUNCTION: s:TimeKeeper_GetTimeString(time) 								{{{
 "  
@@ -466,11 +511,16 @@ function! s:TimeKeeper_GetTimeString(time)
 	let el_time_mins  = (a:time / 60) % 60
 	let el_time_hours = (a:time / (60*60)) % 24
 	let el_time_days  = (a:time / (60*60*24))
+
+	if (el_time_hours < 10)
+		let el_time_hours = '0' . el_time_hours
+	endif
 	
 	if (el_time_mins < 10)
 		return el_time_days . ':' . el_time_hours . ':0' . el_time_mins
 	else
 		return el_time_days . ':' . el_time_hours . ':' . el_time_mins
+	endif
 
 endfunction
 "																			}}}
@@ -623,12 +673,18 @@ endfunction
 "	nothing
 "
 function! s:TimeKeeper_ImportJob(values)
-	if len(a:values) == 5
+	if len(a:values) >= 5
 		" set the job values
 		let job = s:TimeKeeper_AddJob(a:values[0],a:values[1])
 		let job.start_time		 = a:values[2]
 		let job.total_time		 = a:values[3]
 		let job.last_commit_time = a:values[4]
+
+		if len(a:values) == 6
+			let job.status			 = a:values[5]
+		else
+			let job.status			 = 'created'
+		endif
 
 		"set the project totals
 		let s:project_list[a:values[0]].total_time	+= a:values[3]
@@ -868,7 +924,7 @@ function! s:TimeKeeper_RequestCreate()
 		call TimeKeeper_SaveTimeSheet(1)
 	endif
 endfunction
-"																			}}}
+"																				}}}
 " FUNCTION: s:TimeKeeper_ConvertTimeStringToSeconds()						{{{
 "
 " This function will take the string that has been passed in and convert it
@@ -894,6 +950,188 @@ function! s:TimeKeeper_ConvertTimeStringToSeconds(user_string)
 	return seconds
 endfunction
 "																			}}}
+" FUNCTION: s:TimeKeeper_UserStartedTyping()								{{{
+"
+" This function will be called when the user has started typing again. This
+" function will be called when the user moves the cursor or the editor regains
+" keyboard focus.
+"
+" vars:
+"	none
+"
+function! s:TimeKeeper_UserStartedTyping()
+	" Do we throw away the time that the user has been away?
+	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTimeSec
+		" No, add the elapsed time.
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
+	else
+		"Yes, just add the stop to start time
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
+	endif
+
+	" check to see if we need to update the git note
+	if g:TimeKeeperUseGitNotes && (s:last_note_update_time + g:TimeKeeperGitNoteUpdateTimeSec) < localtime()
+		"Ok, we have to update the git note now
+		call s:TimeKeeper_UpdateGitNote()
+	endif
+
+	" update the started typing time
+	let s:user_started_typing = localtime()
+	let s:user_stopped_typing = localtime()
+
+	" remove the events as these slow down the editor
+	au! TimeKeeper CursorMovedI
+	au! TimeKeeper CursorMoved
+	au! TimeKeeper FocusGained
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_ToggleListItem()										{{{
+"
+" This function will toggle the list item, it will toggle through the choices
+" for each item. It is context dependant as to what the next state will be.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_ToggleListItem()
+	let curr_line = line(".")
+
+	if curr_line > s:TimeKeeper_TopListLine && curr_line < s:TimeKeeper_BottomListLine
+		" Ok, it's in the menu.
+		
+		for project_name in keys(s:project_list)
+			if s:project_list[project_name].lnum == curr_line
+				" we have the current project
+
+			elseif s:project_list[project_name].lnum < curr_line
+				" Ok, it's in the previous projects list
+	
+			endif
+		endfor
+	endif
+
+endfunction
+"																				}}}
+" FUNCTION: TimeKeeper_MapTaskListKeys()										{{{
+"
+" This function maps the keys that the buffer will respond to. All the keys are
+" local to the buffer.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_MapTaskListKeys()
+	map <buffer> <silent> <cr>	:call s:TimeKeeper_ToggleListItem()<cr>
+	map <buffer> <silent> o		:call s:TimeKeeper_ToggleListItem()<cr>
+endfunction
+"																				}}}
+" FUNCTION: s:TimeKeeper_UpdateTaskList()  										{{{
+"
+" This function will fill the task window with the list of tasks.
+"
+" vars:
+"	timesheet	The file to open as a timesheet
+"
+" returns:
+"	1 - If the database could be loaded.
+"	0 - If the database failed to load.
+"
+function! s:TimeKeeper_UpdateTaskList()
+	let result = 0
+
+	" Ok, lets build the output List of lists that need to be written to the file.
+	let output = []
+
+	let s:TimeKeeper_TopListLine = len(output)
+
+	for project_name in keys(s:project_list)
+		if !exists("s:project_list[project_name].opened") || s:project_list[project_name].opened == 0 
+			let line = s:TimeKeeperClosed . ' ' . project_name . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
+			let s:project_list[project_name].opened = 1
+			call add(output,line)
+			let s:project_list[project_name].lnum = len(output)
+		else
+			let line = s:TimeKeeperOpen . ' ' . project_name . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
+			call add(output,line)
+			let s:project_list[project_name].lnum = len(output)
+			
+			for job_name in keys(s:project_list[project_name].job)
+
+				if s:project_list[project_name].job[job_name].status == 'completed'
+					let marker = s:TimeKeeperCompleted
+
+				elseif s:project_list[project_name].job[job_name].status == 'started'
+					let marker = s:TimeKeeperStarted
+
+				elseif s:project_list[project_name].job[job_name].status == 'abandoned'
+					let marker = s:TimeKeeperAbandoned
+
+				else
+					let marker = s:TimeKeeperCreated
+				endif
+
+				let line = '   ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' ' . job_name . ' ' 
+				call add(output,line)
+
+				let s:project_list[project_name].job[job_name].lnum = len(output)
+
+			endfor
+			call add(output,'')
+		endif
+	endfor
+	
+	let s:TimeKeeper_BottomListLine = len(output)
+
+	call setline(1,output)
+endfunction
+"																				}}}
+" FUNCTION: s:TimeKeeper_OpenTaskWindow()										{{{
+" 
+" This function will open the task window if it is not already open. It will
+" fill it with the list of tasks.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_OpenTaskWindow()
+	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
+		" window already open - just go to it
+		silent exe bufwinnr(bufnr("__TimeKeeper_Task__")) . "wincmd w"
+		setlocal modifiable
+		exe "% delete"
+	else
+		" window not open need to create it
+		let s:buf_number = bufnr("__TimeKeeper_Task__",1)
+		silent topleft 40 vsplit
+		set winfixwidth
+		set winwidth=40
+		set winminwidth=40
+		silent exe "buffer " . s:buf_number
+		setlocal syntax=gitlog
+		setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
+	endif
+	
+	"need to change the window
+	setlocal modifiable
+
+	"Now display the list of tasks.
+	call s:TimeKeeper_UpdateTaskList()
+
+	" set the keys on the Log window
+	"call s:TimeKeeper_MapTaskKeys()
+
+	setlocal nomodifiable
+endfunction
+"																				}}}
 " AUTOCMD FUNCTIONS
 " FUNCTION: s:TimeKeeper_UserStartedTyping()								{{{
 "
