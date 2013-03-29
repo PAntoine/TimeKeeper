@@ -46,6 +46,11 @@ For details on the changes between versions see |TimeKeeper-history|.
 TimeKeeper will track the time that you spend in Vim. It will store this time
 in a comma separated value (CSV) file.
 
+If TimeKeeper finds a ".timekeeper.tmk" in the folder that is is loaded from
+it will use that file as the database file for timekeeper. Else, it will 
+default to the file in the root of the user tree, unless a specific file has
+been  given to timekeeper.
+
 The TimeKeeper plugin does not start recording time until you call the start
 recording function:
 
@@ -235,7 +240,7 @@ g:TimeKeeperDefaultJob								*g:TimeKeeperDefaultJob*
 g:TimeKeeperUpdateFileTimeSec						*g:TimeKeeperUpdateFileTimeSec*
 		The frequency that the timesheet file will be updated. [60 * 15 - 15 mins]
 
-g:TimeKeeperUseLocal								*g:TimeKeeperUseLocal*
+g:TimeKeeperUseLocal	- deprecated 				*g:TimeKeeperUseLocal*
 		If this flag is set then the timekeeper will create a file at the cwd of
 		the editor. If your vim has been compiled without |clientserver| then this
 		will default to 1. [0]
@@ -432,5 +437,8 @@ Version   Author Date        Changes
 1.4.2     PA     25.03.2013  Fixed the use of annotated tags and added to the
                              githook the filter for the tag start.
 1.5.0     PA     26.03.2013  Added the task list window.
+                             Depreciated local file flag, now defaults to using
+							 a localfile if it finds one. Local file name has
+							 changed so does not pollute the working directory.
 
 vim: ts=4 ft=help tw=78

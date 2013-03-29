@@ -1,7 +1,7 @@
 TimeKeeper
 ==========
 
-Version 1.4.2
+Version 1.5.0
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -45,8 +45,20 @@ put the following line in your .vimrc the timekeeper will start when you start t
 
     call TimeKeeper_StartTracking()
 
+It would be a good idea to map the to toggle function to a key, i.e.:
+
+	:map <silent> <F8> :call TimeKeeper_ToggleTaskWindow()<cr>
+
 And the should be it. Once you have done that once then you can set g:TimeKeeperStartOnLoad to
 1 and then TimeKeeper will start every time vim loads.
+
+Important Change
+----------------
+
+The "local file" mechanism has changed. As the git hooks simply look for a local file and then
+use it, so should the plugin. It also solves the problem of backing up the log file as it can
+be added to the repository. (although this is not a good idea as multiple machines can get out
+of step, if you do not follow good update protocol). 
 
 Git Hooks
 ---------
@@ -68,6 +80,6 @@ to the end of your current prepare-commit-msg (and do similar for post) will do 
 
 Licence and Copyright
 ---------------------
-                      Copyright (c) 2012 Peter Antoine
+                      Copyright (c) 2013 Peter Antoine
                              All rights Reserved.
                      Released Under the Artistic Licence

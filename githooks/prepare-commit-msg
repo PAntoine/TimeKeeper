@@ -99,7 +99,7 @@ then
 		if [ "$TIMEKEEPER_TIMESHEET" == "" ];
 		then
 			# check for local file first
-			if [[ -w timekeeper.tmk && -r timekeeper.tmk ]];
+			if [[ -w ".timekeeper.tmk" && -r ".timekeeper.tmk" ]];
 			then
 				TIMEKEEPER_TIMESHEET="timekeeper.tmk"
 			else

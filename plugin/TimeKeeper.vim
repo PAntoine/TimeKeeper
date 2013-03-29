@@ -89,7 +89,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin")
+if !exists("s:TimeKeeperPlugin") || 1
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
@@ -131,19 +131,22 @@ if !exists("s:TimeKeeperPlugin")
 		let g:TimeKeeperUpdateFileTimeSec = 60 * 15		" time before the timesheet is written to the file
 	endif
 
-	if !exists("g:TimeKeeperUseLocal")
-		if (has('clientserver'))
-			let g:TimeKeeperUseLocal = 0				" Use the file local to where the browser was started or use the user default
-		else
-			let g:TimeKeeperUseLocal = 1				" Default to local, as without clientserver there will be race conditions.
-		endif
-	endif
+	" deprecated !!! It's pointless and annoying
+	" want to be able to do this on a project basis and
+	" check the files into the repo.
+	"if !exists("g:TimeKeeperUseLocal")
+	"	if (has('clientserver'))
+	"		let g:TimeKeeperUseLocal = 0				" Use the file local to where the browser was started or use the user default
+	"	else
+	"		let g:TimeKeeperUseLocal = 1				" Default to local, as without clientserver there will be race conditions.
+	"	endif
+	"endif
 
-	if !exists("g:TimeKeeperFileName")					" What file should the TimeKeeper store the timesheet in
-		if (g:TimeKeeperUseLocal)
-			let g:TimeKeeperFileName = 'timekeeper.tmk'
+	if !exists("g:TimeKeeperFileName")					" What file should the TimeKeeper store the timesheet in.
+		if filewritable('.timekeeper.tmk') || filereadable('.timekeeper.tmk')	" If the file exists try to use, it will fail later.
+			let g:TimeKeeperFileName = '.timekeeper.tmk'
 		else
-			let g:TimeKeeperFileName = $HOME . '/' . '.timekeeper.tmk'
+			let g:TimeKeeperFileName = $HOME . '/' . '.timekeeper.tmk'			" else default to the global one
 		endif
 	endif
 
@@ -1356,7 +1359,7 @@ endfunction
 "
 function! s:TimeKeeper_CheckForCWDChange()
 	" has the directory changed? 	
-	if g:TimeKeeperUseLocal && s:current_dir != getcwd()
+	if s:current_dir != getcwd()
 		call s:TimeKeeper_SaveTimeSheet(0)
 		call s:TimeKeeper_LoadTimeSheet()
 	
