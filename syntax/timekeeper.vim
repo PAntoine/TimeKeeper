@@ -28,36 +28,43 @@ let b:current_syntax = "tk"
 syn region	tkProjectLine	start="^▸" start="^▾" start="^+" start="^-" end="$"	keepend contains=tkMarker,tkProjectLine,tkTime,@NoSpell
 
 " Marker for project selection
-syn match	tkMarker		"▸"	contained containedin=tkProjectLine nextgroup=tkProjectName
-syn match	tkMarker		"▾"	contained containedin=tkProjectLine nextgroup=tkProjectName
-syn match	tkMarker		"-"	contained containedin=tkProjectLine nextgroup=tkProjectName
-syn match	tkMarker		"+"	contained containedin=tkProjectLine nextgroup=tkProjectName
+syn match	tkMarker		"▸ "	contained containedin=tkProjectLine nextgroup=tkProjectName
+syn match	tkMarker		"▾ "	contained containedin=tkProjectLine nextgroup=tkProjectName
+syn match	tkMarker		"- "	contained containedin=tkProjectLine nextgroup=tkProjectName
+syn match	tkMarker		"+ "	contained containedin=tkProjectLine nextgroup=tkProjectName
 
-syn match	tkProjectName	"[0-9A-Za-z\._#]\+"					contained containedin=tkProjectLine nextgroup=tkTime
-syn match 	tkTime			"[0-9]\+\:[0-9][0-9]\:[0-9][0-9]"	contained containedin=tkProjectLine,tkJobLine
+syn match	tkProjectName			"[0-9A-Za-z\._#]\+"					contained containedin=tkProjectLine nextgroup=tkTime
+syn match	tkCurrentProjectName	"*[0-9A-Za-z\._#]\+"				contained containedin=tkProjectLine nextgroup=tkTime
+syn match 	tkTime					"[0-9]\+\:[0-9][0-9]\:[0-9][0-9]"	contained containedin=tkProjectLine,tkJobLine nextgroup=tkJobName
 
 " syntax for the job line
-syn region	tkJobLine		start="^ " end="$"	keepend contains=@NoSpell
+syn region	tkJobLine		start="^ [•✓+✗x•\- ]" end="$" keepend contains=tkStateStarted,tkStateAbandoned,tkStateComplete,tkJobName,@NoSpell
 
 " Status markers
-syn match	tkStateComplete		"✓"					contained containedin=tkJobLine nextgroup=tkTime
-syn match	tkStateComplete		"+"					contained containedin=tkJobLine nextgroup=tkTime
-syn match	tkStateAbandoned	"✗"					contained containedin=tkJobLine nextgroup=tkTime
-syn match	tkStateAbandoned	"x"					contained containedin=tkJobLine nextgroup=tkTime
-syn match	tkStateStarted		"•"					contained containedin=tkJobLine nextgroup=tkTime
-syn match	tkStateStarted		"-"					contained containedin=tkJobLine nextgroup=tkTime
-syn match	tkJobName			"[0-9A-Za-z\._#]\+"	contained containedin=tkJobName nextgroup=tkTime
+syn match	tkStateComplete		" ✓"								contained containedin=tkJobLine nextgroup=tkJobTime
+syn match	tkStateComplete		" +"								contained containedin=tkJobLine nextgroup=tkJobTime
+syn match	tkStateAbandoned	" ✗"								contained containedin=tkJobLine nextgroup=tkJobTime
+syn match	tkStateAbandoned	" x"								contained containedin=tkJobLine nextgroup=tkJobTime
+syn match	tkStateStarted		" •"								contained containedin=tkJobLine nextgroup=tkJobTime
+syn match	tkStateStarted		" -"								contained containedin=tkJobLine nextgroup=tkJobTime
+syn match 	tkJobTime			" [0-9]\+\:[0-9][0-9]\:[0-9][0-9] "	contained containedin=tkJobLine nextgroup=tkJobName,tkCurrentJobName
+syn match	tkJobName			"[0-9A-Za-z\._#\-]\+"				contained containedin=tkJobLine contains=@NoSpell
+syn match	tkCurrentJobName	"*[0-9A-Za-z\._#\-]\+"				contained containedin=tkJobLine contains=@NoSpell
 
 " set the colours
-hi link tkProjectLine		Normal
-hi link tkJobLine			Normal
-hi link tkTime				Special
-hi link tkMarker			Number
-hi link tkJobLine			String
-hi link tkProjectName		Identifier
-hi link tkStateComplete		col_green
-hi link tkStateAbandoned	col_red
-hi link tkStateStarted		col_yellow
+hi link tkProjectLine			Normal
+hi link tkJobLine				Normal
+hi link tkTime					Special
+hi link tkJobTime				Special
+hi link tkMarker				Number
+hi link tkJobName				String
+hi link tkProjectName			Identifier
+hi 		tkCurrentProjectName	term=bold ctermfg=Yellow guifg=Yellow
+hi 		tkCurrentJobName		term=bold ctermfg=Yellow guifg=Yellow
+hi 		tkStateComplete			term=bold ctermfg=Green guifg=Green
+hi 		tkStateAbandoned		term=bold ctermfg=Red guifg=Red
+hi 		tkStateStarted			term=bold ctermfg=Yellow guifg=Yellow
+
 
 
 

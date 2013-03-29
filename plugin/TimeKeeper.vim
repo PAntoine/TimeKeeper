@@ -110,7 +110,7 @@ if !exists("s:TimeKeeperPlugin") || 1
 
 	" global settings
 	if !exists("g:TimeKeeperAwayTimeSec")
-		let g:TimeKeeperAwayTimeSec = 360    				" 5ive minutes and then assume that the time was not working time.
+		let g:TimeKeeperAwayTimeSec = 360    			" 5ive minutes and then assume that the time was not working time.
 	endif
 
 	if !exists("g:TimeKeeperDefaultProject")
@@ -131,9 +131,9 @@ if !exists("s:TimeKeeperPlugin") || 1
 
 	if !exists("g:TimeKeeperUseLocal")
 		if (has('clientserver'))
-			let g:TimeKeeperUseLocal = 0					" Use the file local to where the browser was started or use the user default
+			let g:TimeKeeperUseLocal = 0				" Use the file local to where the browser was started or use the user default
 		else
-			let g:TimeKeeperUseLocal = 1					" Default to local, as without clientserver there will be race conditions.
+			let g:TimeKeeperUseLocal = 1				" Default to local, as without clientserver there will be race conditions.
 		endif
 	endif
 
@@ -183,7 +183,7 @@ if !exists("s:TimeKeeperPlugin") || 1
 	let s:user_stopped_typing = localtime()
 	let s:user_started_typing = localtime()
 	let s:last_update_time = localtime()
-	let s:last_note_update_time = 0							" use zero to forced the update on start
+	let s:last_note_update_time = 0						" use zero to forced the update on start
 	let s:current_job = g:TimeKeeperDefaultJob
 	let s:current_project = g:TimeKeeperDefaultProject
 	let s:current_server = ''
@@ -560,34 +560,6 @@ function! TimeKeeper_ToggleTaskListItem()
 endfunction
 "																			}}}
 " INTERNAL FUNCTIONS
-" FUNCTION: s:TimeKeeper_GetTimeString(time) 								{{{
-"  
-" This function will return the current job string and the time that the current
-" job has taken so far.
-"
-" vars:
-"      none.
-" returns:
-"      string = "<project>.<job>#dd:hh:mm"
-"
-function! s:TimeKeeper_GetTimeString(time)
-	
-	let el_time_mins  = (a:time / 60) % 60
-	let el_time_hours = (a:time / (60*60)) % 24
-	let el_time_days  = (a:time / (60*60*24))
-
-	if (el_time_hours < 10)
-		let el_time_hours = '0' . el_time_hours
-	endif
-	
-	if (el_time_mins < 10)
-		return el_time_days . ':' . el_time_hours . ':0' . el_time_mins
-	else
-		return el_time_days . ':' . el_time_hours . ':' . el_time_mins
-	endif
-
-endfunction
-"																			}}}
 " FUNCTION: TimeKeeper_UpdateJob(project_name,job_name,time)				{{{
 "
 " NOTE: This job is not script local so it can be called remotely.
@@ -644,6 +616,34 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time)
 			endif
 		endtry
 	endif
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_GetTimeString(time) 								{{{
+"  
+" This function will return the current job string and the time that the current
+" job has taken so far.
+"
+" vars:
+"      none.
+" returns:
+"      string = "<project>.<job>#dd:hh:mm"
+"
+function! s:TimeKeeper_GetTimeString(time)
+	
+	let el_time_mins  = (a:time / 60) % 60
+	let el_time_hours = (a:time / (60*60)) % 24
+	let el_time_days  = (a:time / (60*60*24))
+
+	if (el_time_hours < 10)
+		let el_time_hours = '0' . el_time_hours
+	endif
+	
+	if (el_time_mins < 10)
+		return el_time_days . ':' . el_time_hours . ':0' . el_time_mins
+	else
+		return el_time_days . ':' . el_time_hours . ':' . el_time_mins
+	endif
+
 endfunction
 "																			}}}
 " FUNCTION: s:TimeKeeper_FindServer()  										{{{
@@ -1084,18 +1084,33 @@ function! s:TimeKeeper_UpdateTaskList()
 	setlocal modifiable
 	exe "% delete"
 
+	let padding = "                    "
+	let len_padding = len(padding)
+
 	" Ok, lets build the output List of lists that need to be written to the file.
 	let output = ['Task List','']
 
 	let s:TimeKeeper_TopListLine = len(output)
 
 	for project_name in keys(s:project_list)
+		if project_name == s:current_project
+			let e_marker = ' *'
+		else
+			let e_marker = '  '
+		endif
+	
+		if len(project_name) < len(padding)
+			let pad_length = len_padding - len(project_name)
+		else
+			let pad_length = 1
+		endif
+
 		if !exists("s:project_list[project_name].opened") || s:project_list[project_name].opened == 0 
-			let line = s:TimeKeeperClosed . ' ' . project_name . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
+			let line = s:TimeKeeperClosed . e_marker . project_name . padding[0:pad_length] . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
 			call add(output,line)
 			let s:project_list[project_name].lnum = len(output)
 		else
-			let line = s:TimeKeeperOpen . ' ' . project_name . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
+			let line = s:TimeKeeperOpen . e_marker . project_name . padding[0:pad_length] . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
 			call add(output,line)
 			let s:project_list[project_name].lnum = len(output)
 			
@@ -1114,7 +1129,13 @@ function! s:TimeKeeper_UpdateTaskList()
 					let marker = s:TimeKeeperCreated
 				endif
 
-				let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' ' . job_name . ' ' 
+				" mark the current job
+				if project_name == s:current_project && job_name == s:current_job
+					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' *' . job_name . ' ' 
+				else
+					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . '  ' . job_name . ' ' 
+				endif
+
 				call add(output,line)
 
 				let s:project_list[project_name].job[job_name].lnum = len(output)
@@ -1123,6 +1144,8 @@ function! s:TimeKeeper_UpdateTaskList()
 			call add(output,'')
 		endif
 	endfor
+		
+	call add(output,'')
 	
 	let s:TimeKeeper_BottomListLine = len(output)
 
