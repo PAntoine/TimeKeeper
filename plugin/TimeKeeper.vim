@@ -73,7 +73,7 @@
 "           g:TimeKeeperTagPrefix            This is the prefix to the tag that is to
 "                                            be removed before the job name is taken from
 "                                            the tag.
-"			g:TimeKeeperDontUserUnicode		 If exists then the Task List will use standard
+"			g:TimeKeeperDontUseUnicode		 If exists then the Task List will use standard
 "                                            ascii chars and the extended chars. [0]
 "           g:TimeKeeperStartOnLoad          Start the TimeKeeper on vim load, this 
 "                                            should not be done before the default file
@@ -89,11 +89,11 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin")
+if !exists("s:TimeKeeperPlugin") || 1
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
-	if !exists("g:TimeKeeperDontUserUnicode") || g:TimeKeeperDontUserUnicode == 0
+	if !exists("g:TimeKeeperDontUseUnicode") || g:TimeKeeperDontUseUnicode == 0
 		let s:TimeKeeperCompleted	= '✓'
 		let s:TimeKeeperAbandoned	= '✗'
 		let s:TimeKeeperStarted   	= '•'
@@ -413,6 +413,8 @@ function! TimeKeeper_SaveTimeSheet(create)
 						\ s:project_list[project_name].job[job_name].total_time . ',' .
 						\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
 						\ s:project_list[project_name].job[job_name].status
+
+					echo line
 					call add(output,line)
 				endfor
 			endfor
@@ -420,7 +422,7 @@ function! TimeKeeper_SaveTimeSheet(create)
 			" write the result to a file
 			call writefile(output,g:TimeKeeperFileName)
 
-			let s:file_update_time = localtime()
+			let s:file_update_time = getftime(g:TimeKeeperFileName)
 		endif
 	endif
 endfunction
@@ -498,7 +500,88 @@ function! TimeKeeper_ToggleTaskWindow()
 
 endfunction
 "																			}}}
-" FUNCTION: TimeKeeper_HandleKeypress()  								{{{
+" FUNCTION: TimeKeeper_DoHandleKeypress()  									{{{
+"
+" This function will toggle the state of the list item for the particular
+" item.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_last)
+	let curr_line = line(".")
+	let done = 0
+
+	if s:project_list[a:project_name].lnum == curr_line
+		
+		if a:command == 'toggle'
+			" we have the current project
+			if !exists("s:project_list[a:project_name].opened") || s:project_list[a:project_name].opened == 0 
+				let s:project_list[a:project_name].opened = 1
+			else
+				let s:project_list[a:project_name].opened = 0
+			endif
+		elseif a:command == 'add'
+			let new_job_name = input("[" . a:project_name . "] job name: ","")
+			echomsg ''
+
+			if  new_job_name != ""
+				call s:TimeKeeper_AddJob(a:project_name,new_job_name)
+			endif
+		endif
+		
+		let done = 1
+
+	elseif s:project_list[a:project_name].lnum > curr_line || a:is_last == 1
+		if a:command == 'add'
+			let new_job_name = input("[" . a:prev_project . "] job name: ","")
+			echomsg ''
+
+			if new_job_name != ""
+				call s:TimeKeeper_AddJob(a:prev_project,new_job_name)
+			endif
+
+		elseif a:command == 'close'
+			let s:project_list[a:prev_project].opened = 0
+   			let here = getpos(".")
+			let here[1] = s:project_list[a:prev_project].lnum
+			call setpos(".",here)
+
+		else
+			" Ok, it's in the previous projects list
+			for job_name in keys(s:project_list[a:prev_project].job)
+
+				if s:project_list[a:prev_project].job[job_name].lnum == curr_line
+					if s:project_list[a:prev_project].job[job_name].status == 'created'
+						let s:project_list[a:prev_project].job[job_name].status = 'started'
+					
+					elseif s:project_list[a:prev_project].job[job_name].status == 'started'
+						let s:project_list[a:prev_project].job[job_name].status = 'completed'
+
+					elseif s:project_list[a:prev_project].job[job_name].status == 'completed'
+						let s:project_list[a:prev_project].job[job_name].status = 'abandoned'
+
+					else
+						let s:project_list[a:prev_project].job[job_name].status = 'created'
+					endif
+			
+					call TimeKeeper_UpdateJob(a:prev_project,job_name,0)
+
+					break
+				endif
+			endfor
+		endif
+
+		let done = 1
+	endif
+
+	return done
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_HandleKeypress()  									{{{
 "
 " This function will toggle the state of the list item for the particular
 " item.
@@ -513,6 +596,7 @@ function! TimeKeeper_HandleKeypress(command)
 	" check that the winodw is actually open
 	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
 		let curr_line = line(".")
+		let done = 0
 
 		if a:command == 'add_project'
 			let new_project_name = input("project name: ","")
@@ -527,73 +611,24 @@ function! TimeKeeper_HandleKeypress(command)
 
 		elseif curr_line > s:TimeKeeper_TopListLine && curr_line < s:TimeKeeper_BottomListLine
 			" Ok, it's in the menu.
+			let done = 0
+			let prev_project = ''
 
 			for project_name in keys(s:project_list)
-				if s:project_list[project_name].lnum == curr_line
-					
-					if a:command == 'toggle'
-						" we have the current project
-						if !exists("s:project_list[project_name].opened") || s:project_list[project_name].opened == 0 
-							let s:project_list[project_name].opened = 1
-						else
-							let s:project_list[project_name].opened = 0
-						endif
-					elseif a:command == 'add'
-						let new_job_name = input("[" . project_name . "] job name: ","")
-						echomsg ''
-
-						if  new_job_name != ""
-							call s:TimeKeeper_AddJob(project_name,new_job_name)
-						endif
-					endif
-
-					break
-
-				elseif s:project_list[project_name].lnum > curr_line
-					if a:command == 'add'
-						let new_job_name = input("[" . prev_project . "] job name: ","")
-						echomsg ''
-
-						if new_job_name != ""
-							call s:TimeKeeper_AddJob(prev_project,new_job_name)
-						endif
-
-					elseif a:command == 'close'
-						let s:project_list[prev_project].opened = 0
-			   			let here = getpos(".")
-						let here[1] = s:project_list[prev_project].lnum
-						call setpos(".",here)
-
-					else
-						" Ok, it's in the previous projects list
-						for job_name in keys(s:project_list[prev_project].job)
-
-							if s:project_list[prev_project].job[job_name].lnum == curr_line
-								if s:project_list[prev_project].job[job_name].status == 'created'
-									let s:project_list[prev_project].job[job_name].status = 'started'
-								
-								elseif s:project_list[prev_project].job[job_name].status == 'started'
-									let s:project_list[prev_project].job[job_name].status = 'completed'
 	
-								elseif s:project_list[prev_project].job[job_name].status == 'completed'
-									let s:project_list[prev_project].job[job_name].status = 'abandoned'
-	
-								else
-									let s:project_list[prev_project].job[job_name].status = 'created'
-								endif
-						
-								call TimeKeeper_UpdateJob(prev_project,job_name,0)
-
-								break
-							endif
-						endfor
-					endif
-
+				if TimeKeeper_DoHandleKeypress(a:command,project_name,prev_project,0) == 1
+					let done = 1
+					echo "break"
 					break
 				endif
 
 				let prev_project = project_name
 			endfor
+
+			if done == 0
+				echo "here " . done . "project_name:" . project_name
+				call TimeKeeper_DoHandleKeypress(a:command,project_name,prev_project,1)
+			endif
 		endif
 
 		" refresh the list
