@@ -94,7 +94,7 @@ if !exists("s:TimeKeeperPlugin") || 1
 	if !exists("g:TimeKeeperDontUserUnicode")
 		let s:TimeKeeperCompleted	= '✓'
 		let s:TimeKeeperAbandoned	= '✗'
-		let s:TimeKeeperStarted   	= '-'
+		let s:TimeKeeperStarted   	= '•'
 		let s:TimeKeeperCreated   	= ' '
 		let s:TimeKeeperClosed		= '▸'
 		let s:TimeKeeperOpen		= '▾'
@@ -493,6 +493,70 @@ function! TimeKeeper_ToggleTaskWindow()
 		augroup! TimeKeeper
 	endif
 
+endfunction
+"																			}}}
+" FUNCTION: TimeKeeper_ToggleTaskListItem()  								{{{
+"
+" This function will toggle the state of the list item for the particular
+" item.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! TimeKeeper_ToggleTaskListItem()
+	" check that the winodw is actually open
+	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
+		let curr_line = line(".")
+
+		if curr_line > s:TimeKeeper_TopListLine && curr_line < s:TimeKeeper_BottomListLine
+			" Ok, it's in the menu.
+
+			for project_name in keys(s:project_list)
+				if s:project_list[project_name].lnum == curr_line
+					" we have the current project
+					if !exists("s:project_list[project_name].opened") || s:project_list[project_name].opened == 0 
+						let s:project_list[project_name].opened = 1
+					else
+						let s:project_list[project_name].opened = 0
+					endif
+					break
+
+				elseif s:project_list[project_name].lnum > curr_line
+					" Ok, it's in the previous projects list
+					for job_name in keys(s:project_list[prev_project].job)
+						
+						if s:project_list[prev_project].job[job_name].lnum == curr_line
+							if s:project_list[prev_project].job[job_name].status == 'created'
+								let s:project_list[prev_project].job[job_name].status = 'started'
+								
+							elseif s:project_list[prev_project].job[job_name].status == 'started'
+								let s:project_list[prev_project].job[job_name].status = 'completed'
+
+							elseif s:project_list[prev_project].job[job_name].status == 'completed'
+								let s:project_list[prev_project].job[job_name].status = 'abandoned'
+
+							else
+								let s:project_list[prev_project].job[job_name].status = 'created'
+
+							endif
+
+							break
+						endif
+					endfor
+
+					break
+				endif
+
+				let prev_project = project_name
+			endfor
+
+			" refresh the list
+			call s:TimeKeeper_UpdateTaskList()
+		endif
+	endif
 endfunction
 "																			}}}
 " INTERNAL FUNCTIONS
@@ -985,37 +1049,7 @@ function! s:TimeKeeper_UserStartedTyping()
 	au! TimeKeeper FocusGained
 endfunction
 "																			}}}
-" FUNCTION: s:TimeKeeper_ToggleListItem()										{{{
-"
-" This function will toggle the list item, it will toggle through the choices
-" for each item. It is context dependant as to what the next state will be.
-"
-" vars:
-"	none
-"
-" returns:
-"	nothing
-"
-function! s:TimeKeeper_ToggleListItem()
-	let curr_line = line(".")
-
-	if curr_line > s:TimeKeeper_TopListLine && curr_line < s:TimeKeeper_BottomListLine
-		" Ok, it's in the menu.
-		
-		for project_name in keys(s:project_list)
-			if s:project_list[project_name].lnum == curr_line
-				" we have the current project
-
-			elseif s:project_list[project_name].lnum < curr_line
-				" Ok, it's in the previous projects list
-	
-			endif
-		endfor
-	endif
-
-endfunction
-"																				}}}
-" FUNCTION: TimeKeeper_MapTaskListKeys()										{{{
+" FUNCTION: s:TimeKeeper_MapTaskListKeys()										{{{
 "
 " This function maps the keys that the buffer will respond to. All the keys are
 " local to the buffer.
@@ -1027,8 +1061,7 @@ endfunction
 "	nothing
 "
 function! s:TimeKeeper_MapTaskListKeys()
-	map <buffer> <silent> <cr>	:call s:TimeKeeper_ToggleListItem()<cr>
-	map <buffer> <silent> o		:call s:TimeKeeper_ToggleListItem()<cr>
+	map <buffer> <silent> <cr>	:call TimeKeeper_ToggleTaskListItem()<cr>
 endfunction
 "																				}}}
 " FUNCTION: s:TimeKeeper_UpdateTaskList()  										{{{
@@ -1045,15 +1078,20 @@ endfunction
 function! s:TimeKeeper_UpdateTaskList()
 	let result = 0
 
+	let curr_line = getpos(".")
+
+	" we need to be able to write to the buffer
+	setlocal modifiable
+	exe "% delete"
+
 	" Ok, lets build the output List of lists that need to be written to the file.
-	let output = []
+	let output = ['Task List','']
 
 	let s:TimeKeeper_TopListLine = len(output)
 
 	for project_name in keys(s:project_list)
 		if !exists("s:project_list[project_name].opened") || s:project_list[project_name].opened == 0 
 			let line = s:TimeKeeperClosed . ' ' . project_name . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
-			let s:project_list[project_name].opened = 1
 			call add(output,line)
 			let s:project_list[project_name].lnum = len(output)
 		else
@@ -1076,7 +1114,7 @@ function! s:TimeKeeper_UpdateTaskList()
 					let marker = s:TimeKeeperCreated
 				endif
 
-				let line = '   ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' ' . job_name . ' ' 
+				let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' ' . job_name . ' ' 
 				call add(output,line)
 
 				let s:project_list[project_name].job[job_name].lnum = len(output)
@@ -1089,6 +1127,12 @@ function! s:TimeKeeper_UpdateTaskList()
 	let s:TimeKeeper_BottomListLine = len(output)
 
 	call setline(1,output)
+	
+	call setpos(".",curr_line)
+
+	" mark it as non-modifiable
+	setlocal nomodifiable
+
 endfunction
 "																				}}}
 " FUNCTION: s:TimeKeeper_OpenTaskWindow()										{{{
@@ -1106,8 +1150,6 @@ function! s:TimeKeeper_OpenTaskWindow()
 	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
 		" window already open - just go to it
 		silent exe bufwinnr(bufnr("__TimeKeeper_Task__")) . "wincmd w"
-		setlocal modifiable
-		exe "% delete"
 	else
 		" window not open need to create it
 		let s:buf_number = bufnr("__TimeKeeper_Task__",1)
@@ -1116,7 +1158,7 @@ function! s:TimeKeeper_OpenTaskWindow()
 		set winwidth=40
 		set winminwidth=40
 		silent exe "buffer " . s:buf_number
-		setlocal syntax=gitlog
+		setlocal syntax=timekeeper
 		setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
 	endif
 	
@@ -1127,7 +1169,7 @@ function! s:TimeKeeper_OpenTaskWindow()
 	call s:TimeKeeper_UpdateTaskList()
 
 	" set the keys on the Log window
-	"call s:TimeKeeper_MapTaskKeys()
+	call s:TimeKeeper_MapTaskListKeys()
 
 	setlocal nomodifiable
 endfunction
