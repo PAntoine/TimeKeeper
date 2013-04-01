@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     March 29, 2013
-Version:  1.4.0
+Date:     April 1, 2013
+Version:  2.0.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -436,7 +436,7 @@ Version   Author Date        Changes
 1.4.1     PA     17.03.2013  Added the tag support to the git hooks.
 1.4.2     PA     25.03.2013  Fixed the use of annotated tags and added to the
                              githook the filter for the tag start.
-1.5.0     PA     26.03.2013  Added the task list window.
+2.0.0     PA     01.04.2013  Added the task list window.
                              Depreciated local file flag, now defaults to using
 							 a localfile if it finds one. Local file name has
 							 changed so does not pollute the working directory.

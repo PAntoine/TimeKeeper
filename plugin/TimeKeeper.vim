@@ -82,7 +82,7 @@
 "   author: Peter Antoine
 "     date: 16/11/2012 18:05:21
 " ---------------------------------------------------------------------------------
-"                      Copyright (c) 2012 Peter Antoine
+"                    Copyright (c) 2012 - 2013 Peter Antoine
 "                             All rights Reserved.
 "                     Released Under the Artistic Licence
 " ---------------------------------------------------------------------------------
@@ -92,6 +92,7 @@
 if !exists("s:TimeKeeperPlugin")
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
+	let s:TimeKeeperIsTracking = 0
 
 	if !exists("g:TimeKeeperDontUseUnicode") || g:TimeKeeperDontUseUnicode == 0
 		let s:TimeKeeperCompleted	= '✓'
@@ -242,6 +243,8 @@ function! TimeKeeper_StartTracking()
 	call s:TimeKeeper_LoadTimeSheet()
 
 	call s:TimeKeeper_FindServer()
+	
+	let s:TimeKeeperIsTracking = 1
 
 	if g:TimeKeeperUseGitProjectBranch
 		call s:TimeKeeper_SetJobNameFromGitRepository()
@@ -278,11 +281,15 @@ endfunction
 "      none.
 " returns:
 "      string = "<project>.<job>#dd:hh:mm"
+"   or string = <not tracking> - when timekeeper is not tracking.
 "
 function! TimeKeeper_GetCurrentJobString()
 	
-
-	return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].job[s:current_job].total_time)
+	if s:TimeKeeperIsTracking == 1
+		return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].job[s:current_job].total_time)
+	else
+		return '<not tracking>'
+	endif
 
 endfunction
 "																			}}}
@@ -297,7 +304,11 @@ endfunction
 "
 function! TimeKeeper_GetElapsedTime()
 	
-	return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(localtime() - s:start_editor_time)
+	if s:TimeKeeperIsTracking == 1
+		return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(localtime() - s:start_editor_time)
+	else
+		return ''
+	endif
 
 endfunction
 "																			}}}
@@ -312,7 +323,11 @@ endfunction
 "
 function! TimeKeeper_GetProjectTimeString()
 	
-	return s:current_project . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].total_time)
+	if s:TimeKeeperIsTracking == 1
+		return s:current_project . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].total_time)
+	else
+		return ''
+	endif
 
 endfunction
 "																			}}}
@@ -327,7 +342,11 @@ endfunction
 "
 function! TimeKeeper_GetJobStartTimeString()
 	
-	return s:current_project . '.' . s:current_job . '#' . strftime("%Y/%m/%d-%H:%M",s:project_list[s:current_project].job[s:current_job].start_time)
+	if s:TimeKeeperIsTracking == 1
+		return s:current_project . '.' . s:current_job . '#' . strftime("%Y/%m/%d-%H:%M",s:project_list[s:current_project].job[s:current_job].start_time)
+	else
+		return ''
+	endif
 
 endfunction
 "																			}}}
@@ -342,7 +361,11 @@ endfunction
 "
 function! TimeKeeper_GetJobSessionTime()
 	
-	return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].job[s:current_job].total_time - s:start_tracking_time)
+	if s:TimeKeeperIsTracking == 1
+		return s:current_project . '.' . s:current_job . '#' . s:TimeKeeper_GetTimeString(s:project_list[s:current_project].job[s:current_job].total_time - s:start_tracking_time)
+	else
+		return ''
+	endif
 
 endfunction
 "																			}}}
@@ -358,19 +381,21 @@ endfunction
 function! TimeKeeper_GetAllJobStrings()
 	
 	let output = []
-
-	" Ok, lets build the output List of lists that need to be written to the file.
-	for project_name in keys(s:project_list)
-		for job_name in keys(s:project_list[project_name].job)
-			let el_time_mins  = (s:project_list[project_name].job[job_name].total_time / 60) % 60
-			let el_time_hours = ((s:project_list[project_name].job[job_name].total_time / (60*60)) % 24)
-			let el_time_days  = (s:project_list[project_name].job[job_name].total_time / (60*60*24))
 	
-			let line = project_name . '.' . job_name . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
+	if s:TimeKeeperIsTracking == 1
+		" Ok, lets build the output List of lists that need to be written to the file.
+		for project_name in keys(s:project_list)
+			for job_name in keys(s:project_list[project_name].job)
+				let el_time_mins  = (s:project_list[project_name].job[job_name].total_time / 60) % 60
+				let el_time_hours = ((s:project_list[project_name].job[job_name].total_time / (60*60)) % 24)
+				let el_time_days  = (s:project_list[project_name].job[job_name].total_time / (60*60*24))
+		
+				let line = project_name . '.' . job_name . '#' . el_time_days . ':' . el_time_hours . ':' . el_time_mins
 
-			call add(output,line)
+				call add(output,line)
+			endfor
 		endfor
-	endfor
+	endif
 
 	return output
 endfunction

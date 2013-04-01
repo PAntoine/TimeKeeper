@@ -1,7 +1,7 @@
 TimeKeeper
 ==========
 
-Version 1.5.0
+Version 2.0.0
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -80,6 +80,6 @@ to the end of your current prepare-commit-msg (and do similar for post) will do 
 
 Licence and Copyright
 ---------------------
-                      Copyright (c) 2013 Peter Antoine
+                    Copyright (c) 2012 - 2013 Peter Antoine
                              All rights Reserved.
                      Released Under the Artistic Licence
