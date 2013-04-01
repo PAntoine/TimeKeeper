@@ -89,7 +89,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin") || 1
+if !exists("s:TimeKeeperPlugin")
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 
@@ -220,8 +220,7 @@ if !exists("s:TimeKeeperPlugin") || 1
 "
 function! TimeKeeper_StopTracking()
 	au! TimeKeeper
-	call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
-	call TimeKeeper_SaveTimeSheet(0)
+	call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing),1)
 	
 	" check to see if we need to update the git note
 	if g:TimeKeeperUseGitNotes
@@ -470,7 +469,7 @@ function! TimeKeeper_AddAdditionalTime()
 	if !empty(time_string)
 		let time = s:TimeKeeper_ConvertTimeStringToSeconds(time_string)
 		if time > 0
-			call TimeKeeper_UpdateJob(s:current_project,s:current_job,time)
+			call TimeKeeper_UpdateJob(s:current_project,s:current_job,time,0)
 		endif
 	endif
 endfunction
@@ -523,7 +522,7 @@ function! TimeKeeper_HandleKeypress(command)
 				let new_job_name = input("job name: ","")
 
 				if new_job_name != ""
-					call s:TimeKeeper_AddJob(new_project_name,new_job_name)
+					call TimeKeeper_UpdateJob(new_project_name,new_job_name,0,1)
 				endif
 			endif
 
@@ -553,7 +552,7 @@ function! TimeKeeper_HandleKeypress(command)
 endfunction
 "																			}}}
 " INTERNAL FUNCTIONS
-" FUNCTION: TimeKeeper_UpdateJob(project_name,job_name,time)				{{{
+" FUNCTION: TimeKeeper_UpdateJob(project_name,job_name,time,force)				{{{
 "
 " NOTE: This job is not script local so it can be called remotely.
 "
@@ -566,11 +565,12 @@ endfunction
 "	project_name	The name of the project.
 "	job_name		The name of the job.
 "	time			The time that is to be added to the job.
+"   force			Update the file now.
 "
 " returns:
 "	nothing
 "
-function! TimeKeeper_UpdateJob(project_name, job_name, time)
+function! TimeKeeper_UpdateJob(project_name, job_name, time, force)
 	" track the time
 	let job = s:TimeKeeper_AddJob(a:project_name,a:job_name)
 	
@@ -580,13 +580,13 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time)
 	" if we are master do the update
 	if s:current_server == ''
 		" check to see if we need to update the timesheet file
-		if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime()
+		if a:force == 1 || ((s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime())
 			" Ok. we have to update the file now.
 			call TimeKeeper_SaveTimeSheet(0)
 		endif
 	else
 		" Ok, we are not the server, we need to update the server
-		let job_string = "TimeKeeper_UpdateJob('" . a:project_name . "','" . a:job_name . "'," . a:time . ")"
+		let job_string = "TimeKeeper_UpdateJob('" . a:project_name . "','" . a:job_name . "'," . a:time . "," . a:force . ")"
 		
 		try 
 			call remote_expr(s:current_server,job_string)
@@ -596,7 +596,7 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time)
 
 			if s:current_server == ''
 				" check to see if we need to update the timesheet file - as we are now master
-				if (s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime()
+				if a:force == 1 || ((s:last_update_time + g:TimeKeeperUpdateFileTimeSec) < localtime())
 					" Ok. we have to update the file now.
 					call TimeKeeper_SaveTimeSheet(0)
 				endif
@@ -640,7 +640,7 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 			echomsg ''
 
 			if  new_job_name != ""
-				call s:TimeKeeper_AddJob(a:project_name,new_job_name)
+				call TimeKeeper_UpdateJob(a:prev_project,new_job_name,0,1)
 			endif
 		endif
 		
@@ -652,7 +652,7 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 			echomsg ''
 
 			if new_job_name != ""
-				call s:TimeKeeper_AddJob(a:prev_project,new_job_name)
+				call TimeKeeper_UpdateJob(a:prev_project,new_job_name,0,1)
 			endif
 
 		elseif a:command == 'close'
@@ -668,12 +668,18 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 				if s:project_list[a:prev_project].job[job_name].lnum == curr_line
 
 					if a:command == 'delete'
-						let confirm_delete = input("[" . a:prev_project . "." . job_name . "] Type [Y]es to Delete: ","No")
+						if s:current_project == a:prev_project && s:current_job == job_name
+							call s:TimeKeeper_ReportError("Cannot delete the current job")
+						else
+							let confirm_delete = input("[" . a:prev_project . "." . job_name . "] Type [Y]es to Delete: ","")
+							echomsg ''
 
-						if confirm_delete == "Y" || confirm_delete == "Yes" || confirm_delete == "yes"
-							unlet s:project_list[a:prev_project].job[job_name]
+							if confirm_delete == "Y" || confirm_delete == "Yes" || confirm_delete == "yes" || confirm_delete == 'y'
+								unlet s:project_list[a:prev_project].job[job_name]
 
-							call TimeKeeper_UpdateJob(a:prev_project,job_name,0)
+								" null update to remove the item from the file
+								call TimeKeeper_UpdateJob(s:current_project,s:current_job,0,1)
+							endif
 						endif
 					else
 						if s:project_list[a:prev_project].job[job_name].status == 'created'
@@ -689,7 +695,7 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 							let s:project_list[a:prev_project].job[job_name].status = 'created'
 						endif
 					
-						call TimeKeeper_UpdateJob(a:prev_project,job_name,0)
+						call TimeKeeper_UpdateJob(a:prev_project,job_name,0,1)
 					endif
 
 					break
@@ -1112,10 +1118,10 @@ function! s:TimeKeeper_UserStartedTyping()
 	" Do we throw away the time that the user has been away?
 	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTimeSec
 		" No, add the elapsed time.
-		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing),0)
 	else
 		"Yes, just add the stop to start time
-		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing),0)
 	endif
 
 	" check to see if we need to update the git note
@@ -1301,10 +1307,10 @@ function! s:TimeKeeper_UserStartedTyping()
 	" Do we throw away the time that the user has been away?
 	if (localtime() - s:user_stopped_typing) < g:TimeKeeperAwayTimeSec
 		" No, add the elapsed time.
-		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing))
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(localtime() - s:user_started_typing),0)
 	else
 		"Yes, just add the stop to start time
-		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing))
+		call TimeKeeper_UpdateJob(s:current_project,s:current_job,(s:user_stopped_typing - s:user_started_typing),0)
 	endif
 
 	" check to see if we need to update the git note
