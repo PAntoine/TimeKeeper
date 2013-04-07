@@ -1,4 +1,4 @@
-" vim: ts=4 tw=4 fdm=marker :
+" vim: ts=4 tw=4 fdm=marker nocin ai :
 " ---------------------------------------------------------------------------------
 "     file: TimeKeeper
 " 
@@ -89,7 +89,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin")
+if !exists("s:TimeKeeperPlugin") || 1
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 	let s:TimeKeeperIsTracking = 0
@@ -203,17 +203,19 @@ if !exists("s:TimeKeeperPlugin")
 
 	" the help text for the tasklist
 	let s:tasklist_helptext = [	'? help - to remove',
-								'',
-								'Listing controls',
-								'<cr> - Toggle job/project',
-								'x    - close a project listing',
-								'',
-								'Item Controls',
-								'A    - Add new project',
-								'a    - add new job',
-								't    - add time to job',
-								'n    - toggle the notes',
-								'd    - Delete a job']
+							\	'',
+							\	'Listing controls',
+							\	'<cr> - Toggle job/project',
+							\	'x    - close a project listing',
+							\	'',
+							\	'Item Controls',
+							\	'A    - Add new project',
+							\	'a    - add new job',
+							\	't    - add time to job',
+							\	'n    - toggle the notes',
+							\	'd    - Delete a job',
+							\	'',
+							\	'' ]
 
 	" set up time strings
 	let s:working_week_secs = g:TimeKeeperWorkingDaySecs * g:TimeKeeperWorkingWeekLength
@@ -575,7 +577,7 @@ function! TimeKeeper_HandleKeypress(command)
 				let s:tasklist_help = 1
 			endif
 
-		if a:command == 'add_project'
+		elseif a:command == 'add_project'
 			let new_project_name = input("project name: ","")
 
 			if new_project_name != ""
@@ -873,10 +875,10 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	if !has_key(s:project_list[a:project_name].job,a:job_name)
 
 		let s:project_list[a:project_name].job[a:job_name] = {	'total_time'		: 0,
-																'start_time'		: localtime(),
-																'last_commit_time'	: 0,
-																'status'			: created',
-																'notes'				: ''}
+															\	'start_time'		: localtime(),
+															\	'last_commit_time'	: 0,
+															\	'status'			: 'created',
+															\	'notes'				: ''}
 	endif
 
 	return s:project_list[a:project_name].job[a:job_name]
@@ -1241,7 +1243,7 @@ function! s:TimeKeeper_MapTaskListKeys()
 	" close an open project from within the job list
 	map <buffer> <silent> x		:call TimeKeeper_HandleKeypress('close')<cr>
 	" set the help flag
-	map <buffer> <silent> x		:call TimeKeeper_HandleKeypress('help')<cr>
+	map <buffer> <silent> ?		:call TimeKeeper_HandleKeypress('help')<cr>
 	" Toggle the Note for the current window
 	map <buffer> <silent> n		:call TimeKeeper_HandleKeypress('notes')<cr>
 
@@ -1274,7 +1276,7 @@ function! s:TimeKeeper_UpdateTaskList()
 	let output = ['Task List','']
 	
 	if s:tasklist_help == 1
-		call extend(output,tasklist_helptext)
+		call extend(output,s:tasklist_helptext)
 	endif
 
 	let s:TimeKeeper_TopListLine = len(output)
@@ -1383,7 +1385,6 @@ function! s:TimeKeeper_OpenTaskWindow()
 
 	setlocal nomodifiable
 endfunction
-"																				}}}
 "																				}}}
 " FUNCTION: s:TimeKeeper_OpenNoteWindow()										{{{
 " 
@@ -1507,3 +1508,4 @@ if g:TimeKeeperStartOnLoad
 endif
 
 endif
+
