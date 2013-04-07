@@ -200,6 +200,8 @@ if !exists("s:TimeKeeperPlugin") || 1
 	" internal window states
 	let s:tasklist_help = 0
 	let s:note_window_open = 0
+	let s:current_note_project = ''
+	let s:current_note_job = ''
 
 	" the help text for the tasklist
 	let s:tasklist_helptext = [	'? help - to remove',
@@ -570,6 +572,7 @@ function! TimeKeeper_HandleKeypress(command)
 	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
 		let curr_line = line(".")
 		let done = 0
+		let do_update = 1
 
 		if a:command == 'help'
 			if s:tasklist_help == 1
@@ -577,6 +580,9 @@ function! TimeKeeper_HandleKeypress(command)
 			else
 				let s:tasklist_help = 1
 			endif
+
+			" update the tasklist
+			call s:TimeKeeper_UpdateTaskList()
 
 		elseif a:command == 'add_project'
 			let new_project_name = input("project name: ","")
@@ -588,6 +594,9 @@ function! TimeKeeper_HandleKeypress(command)
 					call TimeKeeper_UpdateJob(new_project_name,new_job_name,0,1)
 				endif
 			endif
+
+			" update the tasklist
+			call s:TimeKeeper_UpdateTaskList()
 
 		elseif curr_line > s:TimeKeeper_TopListLine && curr_line < s:TimeKeeper_BottomListLine
 			" Ok, it's in the menu.
@@ -608,9 +617,6 @@ function! TimeKeeper_HandleKeypress(command)
 				call s:TimeKeeper_DoHandleKeypress(a:command,project_name,prev_project,1)
 			endif
 		endif
-
-		" refresh the list
-		call s:TimeKeeper_UpdateTaskList()
 	endif
 endfunction
 "																			}}}
@@ -683,7 +689,8 @@ endfunction
 "	none
 "
 " returns:
-"	nothing
+"	0 - if keypress unhandled
+"   1 - if keypress handled
 "
 function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_last)
 	let curr_line = line(".")
@@ -709,6 +716,9 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 		endif
 		
 		let done = 1
+			
+		" update the tasklist
+		call s:TimeKeeper_UpdateTaskList()
 
 	elseif s:project_list[a:project_name].lnum > curr_line || a:is_last == 1
 		" The keys for the indevidual jobs
@@ -720,6 +730,9 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 			if new_job_name != ""
 				call TimeKeeper_UpdateJob(a:prev_project,new_job_name,0,1)
 			endif
+		
+			" update the tasklist
+			call s:TimeKeeper_UpdateTaskList()
 
 		elseif a:command == 'time'
 			for job_name in keys(s:project_list[a:prev_project].job)
@@ -729,12 +742,27 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 					break
 				endif
 			endfor
+			
+			" update the tasklist
+			call s:TimeKeeper_UpdateTaskList()
+
+		elseif a:command == 'notes'
+			for job_name in keys(s:project_list[a:prev_project].job)
+
+				if s:project_list[a:prev_project].job[job_name].lnum == curr_line
+					call s:TimeKeeper_ToggleNoteWindow(a:prev_project,job_name)
+					break
+				endif
+			endfor
 
 		elseif a:command == 'close'
 			let s:project_list[a:prev_project].opened = 0
    			let here = getpos(".")
 			let here[1] = s:project_list[a:prev_project].lnum
 			call setpos(".",here)
+			
+			" update the tasklist
+			call s:TimeKeeper_UpdateTaskList()
 
 		else
 			" Ok, it's in the previous projects list
@@ -776,8 +804,11 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 					break
 				endif
 			endfor
+		
+			" update the tasklist
+			call s:TimeKeeper_UpdateTaskList()
 		endif
-
+			
 		let done = 1
 	endif
 
@@ -1394,11 +1425,14 @@ function! s:TimeKeeper_OpenTaskWindow()
 
 	setlocal nomodifiable
 endfunction
-"																				}}}
-" FUNCTION: s:TimeKeeper_OpenNoteWindow()										{{{
+"																			}}}
+" FUNCTION: s:TimeKeeper_ToggleNoteWindow()									{{{
 " 
-" This function will open the note window if it is not already open. It will
+" This function will toggle the note window if it is not already open. It will
 " fill it with contents of the given jobs not.
+"
+" If the window has contents that have either changed on close or being loaded
+" with new content then the contents will be saved before exit.
 "
 " vars:
 "	none
@@ -1406,27 +1440,46 @@ endfunction
 " returns:
 "	nothing
 "
-function! s:TimeKeeper_OpenNoteWindow(project_name, job_name)
-	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
+function! s:TimeKeeper_ToggleNoteWindow(project_name, job_name)
+
+	if bufwinnr(bufnr("__TimeKeeper_Notes__")) != -1
 		" window already open - just go to it
 		silent exe bufwinnr(bufnr("__TimeKeeper_Notes__")) . "wincmd w"
 	else
-		if bufwinnr(bufnr("__gitsearch__")) != -1
-			" window already open - just go to it
-			silent exe bufwinnr(bufnr("__TimeKeeper_Notes__")) . "wincmd w"
-		else
-			" window not open need to create it
-			let s:buf_number = bufnr("__TimeKeeper_Notes__",1)
-			bot 10 split
-			silent exe "buffer " . s:buf_number
-			setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
-		endif
+		" window not open need to create it
+		let s:buf_number = bufnr("__TimeKeeper_Notes__",1)
+		bot 10 split
+		silent exe "buffer " . s:buf_number
+		setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
 	endif
 
-	" using the "EOT" char as this will not cause problems with the shell scripts.
-	" should really use the "BELL" for extra lose. :)
-	let window_contents = split(s:project_list[project_name].job[job_name].notes,"\x03")
-	call setline(1,window_contents)
+	" If the note required matches the current note, do nothing
+	if  s:current_note_project != a:project_name || s:current_note_job != a:job_name
+		if s:current_note_project != ''
+			" Ok, need to save the current state of the note.
+			let note_contents = getline(1,"$")
+			let note_string = join(note_contents,"\x03")
+
+			if s:project_list[s:current_note_project].job[s:current_note_job].notes != note_string
+				" Ok, the note changed, write it to the timekeeper file.
+				let s:project_list[s:current_note_project].job[s:current_note_job].notes = note_string
+				call TimeKeeper_UpdateJob(s:current_note_project,s:current_note_job,0,1)
+			endif
+		endif
+			
+		echo "something"
+
+		setlocal modifiable
+		silent exe "% delete"
+
+		" using the "EOT" char as this will not cause problems with the shell scripts.
+		" should really use the "BELL" for extra lose. :)
+		let window_contents = split(s:project_list[a:project_name].job[a:job_name].notes,"\x03")
+		call setline(1,window_contents)
+
+		let s:current_note_project = a:project_name
+		let s:current_note_job = a:job_name
+	endif
 
 endfunction
 "																			}}}
