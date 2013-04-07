@@ -195,7 +195,26 @@ if !exists("s:TimeKeeperPlugin")
 	let s:file_update_time = localtime()
 	let s:start_editor_time = localtime()
 	let s:start_tracking_time = 0
+	
+	" internal window states
+	let s:tasklist_help = 0
+	let s:note_window_open = 0
 
+	" the help text for the tasklist
+	let s:tasklist_helptext = [	'? help - to remove',
+								'',
+								'Listing controls',
+								'<cr> - Toggle job/project',
+								'x    - close a project listing',
+								'',
+								'Item Controls',
+								'A    - Add new project',
+								'a    - add new job',
+								't    - add time to job',
+								'n    - toggle the notes',
+								'd    - Delete a job']
+
+	" set up time strings
 	let s:working_week_secs = g:TimeKeeperWorkingDaySecs * g:TimeKeeperWorkingWeekLength
 
 	let s:times = {	'm':60,'min':60,'mins':60,'minutes':60,
@@ -415,7 +434,8 @@ function! TimeKeeper_SaveTimeSheet(create)
 						\ s:project_list[project_name].job[job_name].start_time . ',' .
 						\ s:project_list[project_name].job[job_name].total_time . ',' .
 						\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
-						\ s:project_list[project_name].job[job_name].status
+						\ s:project_list[project_name].job[job_name].status . ',' .
+						\ s:project_list[project_name].job[job_name].notes
 
 					call add(output,line)
 				endfor
@@ -463,13 +483,21 @@ endfunction
 " returns:
 "	nothing
 "
-function! TimeKeeper_AddAdditionalTime()
+function! TimeKeeper_AddAdditionalTime(...)
+	if (a:0 == 2)
+		let project_name = a:1
+		let job_name = a:2
+	else
+		let project_name = s:current_project
+		let job_name = s:current_job
+	endif
+
 	let time_string = input("Time to Add: ","")
 	
 	if !empty(time_string)
 		let time = s:TimeKeeper_ConvertTimeStringToSeconds(time_string)
 		if time > 0
-			call TimeKeeper_UpdateJob(s:current_project,s:current_job,time,0)
+			call TimeKeeper_UpdateJob(project_name,job_name,time,0)
 		endif
 	endif
 endfunction
@@ -514,6 +542,13 @@ function! TimeKeeper_HandleKeypress(command)
 	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
 		let curr_line = line(".")
 		let done = 0
+
+		if a:command == 'help'
+			if s:tasklist_help == 1
+				let s:tasklist_help = 0
+			else
+				let s:tasklist_help = 1
+			endif
 
 		if a:command == 'add_project'
 			let new_project_name = input("project name: ","")
@@ -627,7 +662,8 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 	let done = 0
 
 	if s:project_list[a:project_name].lnum == curr_line
-		
+		" The keys for the project timeline
+
 		if a:command == 'toggle'
 			" we have the current project
 			if !exists("s:project_list[a:project_name].opened") || s:project_list[a:project_name].opened == 0 
@@ -647,6 +683,8 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 		let done = 1
 
 	elseif s:project_list[a:project_name].lnum > curr_line || a:is_last == 1
+		" The keys for the indevidual jobs
+
 		if a:command == 'add'
 			let new_job_name = input("[" . a:prev_project . "] job name: ","")
 			echomsg ''
@@ -654,6 +692,9 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 			if new_job_name != ""
 				call TimeKeeper_UpdateJob(a:prev_project,new_job_name,0,1)
 			endif
+
+		elseif a:command == 'time'
+			TimeKeeper_AddAdditionalTime(a:prev_project,new_job_name)
 
 		elseif a:command == 'close'
 			let s:project_list[a:prev_project].opened = 0
@@ -806,7 +847,11 @@ function! s:TimeKeeper_AddJob(project_name,job_name)
 	" check to see if it is a new job that we are dealing with
 	if !has_key(s:project_list[a:project_name].job,a:job_name)
 
-		let s:project_list[a:project_name].job[a:job_name] = {'total_time':0, 'start_time': localtime(), 'last_commit_time': 0, 'status':'created' }
+		let s:project_list[a:project_name].job[a:job_name] = {	'total_time'		: 0,
+																'start_time'		: localtime(),
+																'last_commit_time'	: 0,
+																'status'			: created',
+																'notes'				: ''}
 	endif
 
 	return s:project_list[a:project_name].job[a:job_name]
@@ -839,6 +884,12 @@ function! s:TimeKeeper_ImportJob(values)
 			let job.status			 = a:values[5]
 		else
 			let job.status			 = 'created'
+		endif
+
+		if len(a:values) == 7
+			let job.notes			= a:values[6]
+		else
+			let job.notes			= ''
 		endif
 
 		"set the project totals
@@ -1152,11 +1203,22 @@ endfunction
 "	nothing
 "
 function! s:TimeKeeper_MapTaskListKeys()
+	" <cr> toggle the status of a Job/ open close a project
 	map <buffer> <silent> <cr>	:call TimeKeeper_HandleKeypress('toggle')<cr>
+	" A add a new project
 	map <buffer> <silent> A		:call TimeKeeper_HandleKeypress('add_project')<cr>
+	" a add a new job
 	map <buffer> <silent> a		:call TimeKeeper_HandleKeypress('add')<cr>
+	" t add additional time to the job
+	map <buffer> <silent> t		:call TimeKeeper_HandleKeypress('time')<cr>
+	" d Delete a job
 	map <buffer> <silent> d		:call TimeKeeper_HandleKeypress('delete')<cr>
+	" close an open project from within the job list
 	map <buffer> <silent> x		:call TimeKeeper_HandleKeypress('close')<cr>
+	" set the help flag
+	map <buffer> <silent> x		:call TimeKeeper_HandleKeypress('help')<cr>
+	" Toggle the Note for the current window
+	map <buffer> <silent> n		:call TimeKeeper_HandleKeypress('notes')<cr>
 
 endfunction
 "																				}}}
@@ -1185,6 +1247,10 @@ function! s:TimeKeeper_UpdateTaskList()
 
 	" Ok, lets build the output List of lists that need to be written to the file.
 	let output = ['Task List','']
+	
+	if s:tasklist_help == 1
+		call extend(output,tasklist_helptext)
+	endif
 
 	let s:TimeKeeper_TopListLine = len(output)
 
@@ -1293,8 +1359,44 @@ function! s:TimeKeeper_OpenTaskWindow()
 	setlocal nomodifiable
 endfunction
 "																				}}}
+"																				}}}
+" FUNCTION: s:TimeKeeper_OpenNoteWindow()										{{{
+" 
+" This function will open the note window if it is not already open. It will
+" fill it with contents of the given jobs not.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_OpenNoteWindow(project_name, job_name)
+	if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
+		" window already open - just go to it
+		silent exe bufwinnr(bufnr("__TimeKeeper_Notes__")) . "wincmd w"
+	else
+		if bufwinnr(bufnr("__gitsearch__")) != -1
+			" window already open - just go to it
+			silent exe bufwinnr(bufnr("__TimeKeeper_Notes__")) . "wincmd w"
+		else
+			" window not open need to create it
+			let s:buf_number = bufnr("__TimeKeeper_Notes__",1)
+			bot 10 split
+			silent exe "buffer " . s:buf_number
+			setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
+		endif
+	endif
+
+	" using the "EOT" char as this will not cause problems with the shell scripts.
+	" should really use the "BELL" for extra lose. :)
+	let window_contents = split(s:project_list[project_name].job[job_name].notes,"\x03")
+	call setline(1,window_contents)
+
+endfunction
+"																				}}}
 " AUTOCMD FUNCTIONS
-" FUNCTION: s:TimeKeeper_UserStartedTyping()								{{{
+" FUNCTION: s:TimeKeeper_UserStartedTyping()									{{{
 "
 " This function will be called when the user has started typing again. This
 " function will be called when the user moves the cursor or the editor regains
@@ -1328,7 +1430,7 @@ function! s:TimeKeeper_UserStartedTyping()
 	au! TimeKeeper CursorMoved
 	au! TimeKeeper FocusGained
 endfunction
-"																			}}}
+"																				}}}
 " FUNCTION: s:TimeKeeper_UserStoppedTyping()									{{{
 "
 " This function will be called when the user has stopped typing for the time
