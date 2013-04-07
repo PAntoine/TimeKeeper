@@ -1225,7 +1225,7 @@ function! s:TimeKeeper_UserStartedTyping()
 	au! TimeKeeper FocusGained
 endfunction
 "																			}}}
-" FUNCTION: s:TimeKeeper_MapTaskListKeys()										{{{
+" FUNCTION: s:TimeKeeper_MapTaskListKeys()									{{{
 "
 " This function maps the keys that the buffer will respond to. All the keys are
 " local to the buffer.
@@ -1255,8 +1255,8 @@ function! s:TimeKeeper_MapTaskListKeys()
 	map <buffer> <silent> n		:call TimeKeeper_HandleKeypress('notes')<cr>
 
 endfunction
-"																				}}}
-" FUNCTION: s:TimeKeeper_UpdateTaskList()  										{{{
+"																			}}}
+" FUNCTION: s:TimeKeeper_UpdateTaskList()  									{{{
 "
 " This function will fill the task window with the list of tasks.
 "
@@ -1301,11 +1301,13 @@ function! s:TimeKeeper_UpdateTaskList()
 			let pad_length = 1
 		endif
 
-		if !exists("s:project_list[project_name].opened") || s:project_list[project_name].opened == 0 
+		if !exists("s:project_list[project_name].opened") || s:project_list[project_name].opened == 0
+			" The project is closed, just display the header
 			let line = s:TimeKeeperClosed . e_marker . project_name . padding[0:pad_length] . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
 			call add(output,line)
 			let s:project_list[project_name].lnum = len(output)
 		else
+			" the project is open, display all the jobs in the project
 			let line = s:TimeKeeperOpen . e_marker . project_name . padding[0:pad_length] . s:TimeKeeper_GetTimeString(s:project_list[project_name].total_time)
 			call add(output,line)
 			let s:project_list[project_name].lnum = len(output)
@@ -1353,8 +1355,8 @@ function! s:TimeKeeper_UpdateTaskList()
 	setlocal nomodifiable
 
 endfunction
-"																				}}}
-" FUNCTION: s:TimeKeeper_OpenTaskWindow()										{{{
+"																			}}}
+" FUNCTION: s:TimeKeeper_OpenTaskWindow()									{{{
 " 
 " This function will open the task window if it is not already open. It will
 " fill it with the list of tasks.
@@ -1427,9 +1429,9 @@ function! s:TimeKeeper_OpenNoteWindow(project_name, job_name)
 	call setline(1,window_contents)
 
 endfunction
-"																				}}}
+"																			}}}
 " AUTOCMD FUNCTIONS
-" FUNCTION: s:TimeKeeper_UserStartedTyping()									{{{
+" FUNCTION: s:TimeKeeper_UserStartedTyping()								{{{
 "
 " This function will be called when the user has started typing again. This
 " function will be called when the user moves the cursor or the editor regains
@@ -1463,8 +1465,8 @@ function! s:TimeKeeper_UserStartedTyping()
 	au! TimeKeeper CursorMoved
 	au! TimeKeeper FocusGained
 endfunction
-"																				}}}
-" FUNCTION: s:TimeKeeper_UserStoppedTyping()									{{{
+"																			}}}
+" FUNCTION: s:TimeKeeper_UserStoppedTyping()								{{{
 "
 " This function will be called when the user has stopped typing for the time
 " that is specified in the updatetime system variable.
