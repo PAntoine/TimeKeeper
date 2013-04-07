@@ -520,7 +520,8 @@ function! TimeKeeper_AddAdditionalTime(...)
 	endif
 
 	let time_string = input("Time to Add: ","")
-	
+	echomsg ''
+
 	if !empty(time_string)
 		let time = s:TimeKeeper_ConvertTimeStringToSeconds(time_string)
 		if time > 0
@@ -721,7 +722,13 @@ function! s:TimeKeeper_DoHandleKeypress(command,project_name,prev_project,is_las
 			endif
 
 		elseif a:command == 'time'
-			TimeKeeper_AddAdditionalTime(a:prev_project,new_job_name)
+			for job_name in keys(s:project_list[a:prev_project].job)
+
+				if s:project_list[a:prev_project].job[job_name].lnum == curr_line
+					call TimeKeeper_AddAdditionalTime(a:prev_project,job_name)
+					break
+				endif
+			endfor
 
 		elseif a:command == 'close'
 			let s:project_list[a:prev_project].opened = 0
@@ -1170,7 +1177,7 @@ endfunction
 "	0 - if time is invalid
 "   x - The number of seconds as specified.
 "
-let s:regex_short_time = '^\([0-9]*\|[0-9]*\.[0-9]*\)\s*\(m\|h\|d\|w\|mins\|day\|days\|hour\|week\|hours\|weeks\|minute\|minutes\)$'
+let s:regex_short_time = '^\([0-9]*\|[0-9]*\.[0-9]*\)\s*\(m\|h\|d\|w\|min\|mins\|day\|days\|hour\|week\|hours\|weeks\|minute\|minutes\)$'
 
 function! s:TimeKeeper_ConvertTimeStringToSeconds(user_string)
 	let time_list = matchlist(a:user_string,s:regex_short_time)
