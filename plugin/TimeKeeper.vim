@@ -598,6 +598,16 @@ function! TimeKeeper_HandleKeypress(command)
 			" update the tasklist
 			call s:TimeKeeper_UpdateTaskList()
 
+		elseif a:command == 'save_notes'
+			" going to use the toggle with no name - will close the note window
+			call s:TimeKeeper_ToggleNoteWindow('','')
+
+		elseif a:command == 'close_notes'
+			" just close the note window
+			if bufwinnr(bufnr("__TimeKeeper_Notes__")) != -1
+				silent exe "bwipeout __TimeKeeper_Notes__"
+			endif
+
 		elseif curr_line > s:TimeKeeper_TopListLine && curr_line < s:TimeKeeper_BottomListLine
 			" Ok, it's in the menu.
 			let done = 0
@@ -1426,6 +1436,27 @@ function! s:TimeKeeper_OpenTaskWindow()
 	setlocal nomodifiable
 endfunction
 "																			}}}
+" FUNCTION: s:TimeKeeper_MapNoteWindowKeys()								{{{
+"
+" This function maps the keys that the buffer will respond to. All the keys are
+" local to the buffer.
+"
+" vars:
+"	none
+"
+" returns:
+"	nothing
+"
+function! s:TimeKeeper_MapNoteWindowKeys()
+	" Close and Save the changes to the current note.
+	nmap <buffer> <silent> <C-S>	:call TimeKeeper_HandleKeypress('save_notes')<cr>
+	" Discard the changes in the note window.
+	nmap <buffer> <silent> <C-X>	:call TimeKeeper_HandleKeypress('close_notes')<cr>
+	" Goto the List window if it is open.
+	nmap <buffer> <silent> <C-L>	:silent exe bufwinnr(bufnr("__TimeKeeper_Task__")) . "wincmd w"<cr>
+
+endfunction
+"																			}}}
 " FUNCTION: s:TimeKeeper_ToggleNoteWindow()									{{{
 " 
 " This function will toggle the note window if it is not already open. It will
@@ -1450,11 +1481,16 @@ function! s:TimeKeeper_ToggleNoteWindow(project_name, job_name)
 		let s:buf_number = bufnr("__TimeKeeper_Notes__",1)
 		bot 10 split
 		silent exe "buffer " . s:buf_number
+		setlocal syntax=markdown
 		setlocal buftype=nofile bufhidden=wipe nobuflisted noswapfile nowrap
+
+		" we are creating the window, so the current's cant be valid
+		let s:current_note_project = ''
+		let s:current_note_job = ''
 	endif
 
 	" If the note required matches the current note, do nothing
-	if  s:current_note_project != a:project_name || s:current_note_job != a:job_name
+	if  (s:current_note_project != a:project_name || s:current_note_job != a:job_name) && (a:project_name != '')
 		if s:current_note_project != ''
 			" Ok, need to save the current state of the note.
 			let note_contents = getline(1,"$")
@@ -1467,8 +1503,6 @@ function! s:TimeKeeper_ToggleNoteWindow(project_name, job_name)
 			endif
 		endif
 			
-		echo "something"
-
 		setlocal modifiable
 		silent exe "% delete"
 
@@ -1479,6 +1513,24 @@ function! s:TimeKeeper_ToggleNoteWindow(project_name, job_name)
 
 		let s:current_note_project = a:project_name
 		let s:current_note_job = a:job_name
+
+		" Now map the keys that are required
+		call s:TimeKeeper_MapNoteWindowKeys()
+	else
+		" The current job is in the window, check the state and close the window.
+		let note_contents = getline(1,"$")
+		let note_string = join(note_contents,"\x03")
+
+		if s:project_list[s:current_note_project].job[s:current_note_job].notes != note_string
+			" Ok, the note changed, write it to the timekeeper file.
+			let s:project_list[s:current_note_project].job[s:current_note_job].notes = note_string
+			call TimeKeeper_UpdateJob(s:current_note_project,s:current_note_job,0,1)
+		endif
+
+		" now close the window
+		if bufwinnr(bufnr("__TimeKeeper_Notes__")) != -1
+			exe "bwipeout __TimeKeeper_Notes__"
+		endif
 	endif
 
 endfunction
