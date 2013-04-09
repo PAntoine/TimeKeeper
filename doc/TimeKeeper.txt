@@ -136,6 +136,8 @@ In the task list window, the following keys are active:
 	A    - to add a project
 	a    - to add a Task
 	d    - to delete a Task
+    t    - add time to job
+    n    - toggle the notes
 	x    - to collapse a project 
 <
 Example of the task list:
@@ -147,6 +149,19 @@ Example of the task list:
 	 ✗ 0:00:14 *master 
 
 	▸  default         0:00:00
+
+4.1 Task List notes Window.
+
+Each task also can have a 'note' attached. These notes are accessed via the
+list window by pressing 'n' when the job is connected. The notes are not
+used like a normal vim buffer (i.e. history and the rest is ignored). This is
+to make the status of notes more intuitive (and to save me globs of code to
+manage this). 
+
+The notes are stored with the task time data and is saved as a single lump of
+data. This means that it should be possible to commit the file to a VCS and
+have it work across machines.
+
 
 ==============================================================================
 5. Useful TimeKeeper Functions                      *TimeKeeper-functions*
@@ -440,5 +455,7 @@ Version   Author Date        Changes
                              Depreciated local file flag, now defaults to using
 							 a localfile if it finds one. Local file name has
 							 changed so does not pollute the working directory.
+							 Added the task notes window.
+							 Added multi-host/user time tracking.
 
 vim: ts=4 ft=help tw=78

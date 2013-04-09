@@ -207,15 +207,20 @@ if !exists("s:TimeKeeperPlugin") || 1
 	let s:tasklist_helptext = [	'? help - to remove',
 							\	'',
 							\	'Listing controls',
-							\	'<cr> - Toggle job/project',
-							\	'x    - close a project listing',
+							\	'<cr>  - Toggle job/project',
+							\	'x     - close a project listing',
 							\	'',
 							\	'Item Controls',
-							\	'A    - Add new project',
-							\	'a    - add new job',
-							\	't    - add time to job',
-							\	'n    - toggle the notes',
-							\	'd    - Delete a job',
+							\	'A     - Add new project',
+							\	'a     - add new job',
+							\	't     - add time to job',
+							\	'n     - toggle the notes',
+							\	'd     - Delete a job',
+							\	'',
+							\	'Note Window Commands',
+							\	'<C-S> - Save and close note',
+							\	'<C-X> - Abandon and close note',
+							\	'<C-L> - return to list window',
 							\	'',
 							\	'' ]
 
@@ -543,14 +548,19 @@ endfunction
 "
 function! TimeKeeper_ToggleTaskWindow()
 
-	if !exists("s:gitlog_loaded")
+	if !exists("s:gitlog_loaded") || bufwinnr(bufnr("__TimeKeeper_Task__")) == -1
 		call s:TimeKeeper_OpenTaskWindow()
 		let s:gitlog_loaded = 1
 	else
 		unlet s:gitlog_loaded
+		
+		if bufwinnr(bufnr("__TimeKeeper_Notes__")) != -1
+			" close the note window - and save the changes
+			call s:TimeKeeper_ToggleNoteWindow('','')
+		endif
 
 		if bufwinnr(bufnr("__TimeKeeper_Task__")) != -1
-			exe "bwipeout __TimeKeeper_Task__"
+			silent exe "bwipeout __TimeKeeper_Task__"
 		endif
 	endif
 
@@ -1330,7 +1340,7 @@ function! s:TimeKeeper_UpdateTaskList()
 	let s:TimeKeeper_TopListLine = len(output)
 
 	for project_name in keys(s:project_list)
-		if project_name == s:current_project
+		if project_name ==# s:current_project
 			let e_marker = ' *'
 		else
 			let e_marker = '  '
@@ -1369,7 +1379,7 @@ function! s:TimeKeeper_UpdateTaskList()
 				endif
 
 				" mark the current job
-				if project_name == s:current_project && job_name == s:current_job
+				if project_name ==# s:current_project && job_name ==# s:current_job
 					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' *' . job_name . ' ' 
 				else
 					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . '  ' . job_name . ' ' 
