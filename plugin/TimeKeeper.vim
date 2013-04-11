@@ -183,6 +183,8 @@ if !exists("s:TimeKeeperPlugin") || 1
 	" internal data structures for holding the projects
 	let s:current_job = g:TimeKeeperDefaultJob
 	let s:project_list = {}
+	let s:saved_sections = {}
+	let s:current_section_number = 0
 
 	" script level functions to start time capture
 	let s:list_time_called = 0
@@ -452,27 +454,42 @@ function! TimeKeeper_SaveTimeSheet(create)
 	" Only update the file if we are the server else leave it alone
 	if s:current_server == ''
 		if !a:create && !filewritable(g:TimeKeeperFileName)
-			call s:TimeKeeper_ReportError("timesheet file is not writable")
+			call s:TimeKeeper_ReportError("time sheet file is not writable: " . g:TimeKeeperFileName)
 		else
 			" check to make sure the timesheet has not been updated elsewhere (i.e. the githooks)
 			if s:file_update_time < getftime(g:TimeKeeperFileName)
 				call s:TimeKeeper_LoadTimeSheet()
 			endif
 
-			" Ok, lets build the output List of lists that need to be written to the file.
+			" The list that will become the file
 			let output = []
 
-			for project_name in keys(s:project_list)
-				for job_name in keys(s:project_list[project_name].job)
-					let line = project_name . ',' . job_name . ',' . 
-						\ s:project_list[project_name].job[job_name].start_time . ',' .
-						\ s:project_list[project_name].job[job_name].total_time . ',' .
-						\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
-						\ s:project_list[project_name].job[job_name].status . ',' .
-						\ s:project_list[project_name].job[job_name].notes
+			for saved_section in keys(s:saved_sections)
+				echo "dave_section" . saved_section . " saved: " . join(s:saved_sections[saved_section],",")
+				if saved_section == s:current_section_number
+					" Ok, lets build the output List of lists that need to be written to the file.
+					call add(output,'[' . hostname() . ':' . $USER . ']')
 
-					call add(output,line)
-				endfor
+					let project_list = sort(keys(s:project_list))
+
+					for project_name in project_list
+						let job_list = sort(keys(s:project_list[project_name].job))
+
+						for job_name in job_list
+							let line = project_name . ',' . job_name . ',' . 
+								\ s:project_list[project_name].job[job_name].start_time . ',' .
+								\ s:project_list[project_name].job[job_name].total_time . ',' .
+								\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
+								\ s:project_list[project_name].job[job_name].status . ',' .
+								\ s:project_list[project_name].job[job_name].notes
+
+							call add(output,line)
+						endfor
+					endfor
+				else
+					" Output the saved section - unchanged
+					call extend(output,s:saved_sections[saved_section])
+				endif
 			endfor
 			
 			" write the result to a file
@@ -953,7 +970,7 @@ endfunction
 " Not all times are seconds from the start of the unix epoc.
 "
 " vars:
-"	timesheet	The file to open as a timesheet
+"	values	The values for the job to be imported.
 " returns:
 "	nothing
 "
@@ -1144,14 +1161,58 @@ function! s:TimeKeeper_LoadTimeSheet()
 			
 			if !empty(timesheet_data)
 				let result = 1
+				let skip_section = 0
+				let s:max_sections = 0
+				let s:current_section_number = 0
+
+				let debug_str = ''
 
 				for item in timesheet_data
-					let values = split(item,',',1)
+					if item[0] == '['
+						let skip_section = 0
+						let s:max_sections = s:max_sections + 1
 
-					"Should now have a list of the items in the line
-					call s:TimeKeeper_ImportJob(values)
+						" we have a user marker, is it ours?
+						let divider = stridx(item,":")
+						let host_name = strpart(item,1,divider - 1)
+						let user_name = strpart(item,divider + 1,strlen(item) - 2 - divider)
+
+						let debug_str = debug_str . "host" . host_name . " + " . user_name . '###'
+
+						if host_name ==# hostname() && user_name ==# $USER
+							" Ok, this is our section, so remember the section number
+							let s:current_section_number = s:max_sections
+							let s:saved_sections[s:max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
+
+						else
+							" skip this section
+							if host_name == '' || user_name == ''
+								call s:TimeKeeper_ReportError("Invalid Timesheet format. Ignoring user section. section: " . item)
+							endif
+							let skip_section = 1
+							let s:saved_sections[s:max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
+						endif
+					else
+						echo debug_str
+
+						if skip_section == 1
+							" store the skipped sections of the timekeeper file
+							call add(s:saved_sections[s:max_sections],item)
+
+						else
+							let values = split(item,',',1)
+
+							"Should now have a list of the items in the line
+							call s:TimeKeeper_ImportJob(values)
+						endif
+					endif
 				endfor
 
+				if len(s:saved_sections) == 0
+					let s:saved_sections[s:max_sections] = [ '[' . hostname() . ':' . $USER . ']' ]
+				endif
+
+				let s:max_sections = s:max_sections + 1
 				let s:user_last_update_time = localtime()
 			endif
 		endif
