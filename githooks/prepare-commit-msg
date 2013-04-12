@@ -72,10 +72,20 @@ then
 		
 		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ];
 		then
-			current_tag=`git describe --always --abbrev=0`
-			current_tag=${current_tag#$TIMEKEEPER_TAG_PREFIX}
-		fi
+			git describe --abbrev=0 2> /dev/null
 
+			if [ $? -eq 0 ]
+			then
+				current_tag=`git describe --abbrev=0`
+				current_tag=${current_tag#$TIMEKEEPER_TAG_PREFIX}
+				
+				if [ "$current_tag" != "" ]
+				then
+					current_job=$current_tag
+				fi
+			fi
+		fi
+		
 		# if the user has not specified a issue id, then check to see if the
 		# tag has one, if not check to see if the branch has one. Use the first
 		# one that is found.
@@ -90,18 +100,12 @@ then
 			TIMEKEEPER_ISSUE_ID=${TIMEKEEPER_ISSUE_ID:1}
 		fi
 	
-		# use annotated tag, if found and the user requires it.
-		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ] && [ "$current_tag" != "" ];
-		then
-			current_job=$current_tag
-		fi
-
 		if [ "$TIMEKEEPER_TIMESHEET" == "" ];
 		then
 			# check for local file first
 			if [[ -w ".timekeeper.tmk" && -r ".timekeeper.tmk" ]];
 			then
-				TIMEKEEPER_TIMESHEET="timekeeper.tmk"
+				TIMEKEEPER_TIMESHEET=".timekeeper.tmk"
 			else
 				# if local not found the search for global 
 				if [[ -w "$HOME/.timekeeper.tmk" && -r "$HOME/.timekeeper.tmk" ]];
@@ -131,7 +135,7 @@ then
 						current_section=1
 					fi
 
-				elif ["$current_section" == "1" ] && [ "$current_project" == "$project" ] && [ "$current_job" == "$job" ];
+				elif [ "$current_section" == "1" ] && [ "$current_project" == "$project" ] && [ "$current_job" == "$job" ]
 				then
 					elapsed_time=$(($time-$last_commit))
 

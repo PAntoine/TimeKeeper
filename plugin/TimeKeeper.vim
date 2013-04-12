@@ -494,6 +494,8 @@ function! TimeKeeper_SaveTimeSheet(create)
 			" write the result to a file
 			call writefile(output,g:TimeKeeperFileName)
 
+			" update the times
+			let s:last_update_time = localtime()
 			let s:file_update_time = getftime(g:TimeKeeperFileName)
 		endif
 	endif

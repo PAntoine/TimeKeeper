@@ -48,12 +48,17 @@ then
 		
 		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ];
 		then
-			current_tag=`git describe --always --abbrev=0`
-			current_tag=${current_tag#$TIMEKEEPER_TAG_PREFIX}
-		
-			if [ "$current_tag" != "" ];
+			git describe --abbrev=0 2> /dev/null
+
+			if [ $? -eq 0 ]
 			then
-				current_job=$current_tag
+				current_tag=`git describe --abbrev=0`
+				current_tag=${current_tag#$TIMEKEEPER_TAG_PREFIX}
+				
+				if [ "$current_tag" != "" ]
+				then
+					current_job=$current_tag
+				fi
 			fi
 		fi
 
@@ -66,7 +71,6 @@ then
 			
 		# default on -for files that don't have section headers
 		current_section=1
-
 
 		# read the file
 		while IFS=, read -r project job start time last_commit status note;
@@ -85,7 +89,9 @@ then
 					current_section=1
 				fi
 
-			elif ["$current_section" == "1" ] && [ "$current_project" == "$project" ] && [ "$current_job" == "$job" ];
+				string=$project
+
+			elif [ "$current_section" == "1" ] && [ "$current_project" == "$project" ] && [ "$current_job" == "$job" ];
 			then
 				# set the time to the current time in the file
 				string=$project,$job,$start,$time,$time,$status,$note

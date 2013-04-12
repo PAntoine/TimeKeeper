@@ -1,12 +1,10 @@
-TimeKeeper
-==========
+# TimeKeeper #
 
 Version 2.0.0
 
 A timekeeper plugin for vim to track you using automatically.
 
-Introduction
-------------
+## Introduction ##
 
 This is a git plugin that will track the time you spend working on a project.
 
@@ -35,8 +33,7 @@ If you set up the git hooks that are provided, the timekeeper will also amend yo
 allow for the timetracking information to be added to the end of your commits. This is in the
 format that Redmine time tracking can read.
 
-Installation
-------------
+## Installation ##
 
 Simply copy the contents of the plugin directory to the plugin directory in your git installation.
 
@@ -52,16 +49,21 @@ It would be a good idea to map the to toggle function to a key, i.e.:
 And the should be it. Once you have done that once then you can set g:TimeKeeperStartOnLoad to
 1 and then TimeKeeper will start every time vim loads.
 
-Important Change
-----------------
+## Important Changes ##
 
-The "local file" mechanism has changed. As the git hooks simply look for a local file and then
-use it, so should the plugin. It also solves the problem of backing up the log file as it can
-be added to the repository. (although this is not a good idea as multiple machines can get out
-of step, if you do not follow good update protocol). 
+- The "local file" mechanism has changed. As the git hooks simply look for a local file and then
+	use it, so should the plugin. It also solves the problem of backing up the log file as it can
+	be added to the repository. (although this is not a good idea as multiple machines can get out
+	of step, if you do not follow good update protocol). 
 
-Git Hooks
----------
+- The format of the .timekeeper.tmk files have also changed. The most important change is that
+	it now has sections for each of the users and devices that timekeeper is running on. This change
+	will work silently and will bring a file forward. Older versions of the code will do strange but
+	non-destructive things will the file. Older versions will remove the notes, the state and will
+	take all the items from all users/machines and merge them into one group. Also, the first item
+	that is found in the file is the one that will be updated.
+
+## Git Hooks ##
 
 To set up the Git hooks you will need to do the following in the root directory of the git repository.
 
@@ -78,8 +80,7 @@ to integrate these with your current hooks. I assume just adding:
 
 to the end of your current prepare-commit-msg (and do similar for post) will do the job you need.
 
-Licence and Copyright
----------------------
+## Licence and Copyright ##
                     Copyright (c) 2012 - 2013 Peter Antoine
                              All rights Reserved.
                      Released Under the Artistic Licence
