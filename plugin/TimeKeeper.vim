@@ -1163,13 +1163,13 @@ function! s:TimeKeeper_LoadTimeSheet()
 			if !empty(timesheet_data)
 				let result = 1
 				let skip_section = 0
-				let s:max_sections = 0
+				let max_sections = 0
 				let s:current_section_number = 0
 
 				for item in timesheet_data
 					if item[0] == '['
 						let skip_section = 0
-						let s:max_sections = s:max_sections + 1
+						let max_sections = max_sections + 1
 
 						" we have a user marker, is it ours?
 						let divider = stridx(item,":")
@@ -1178,8 +1178,8 @@ function! s:TimeKeeper_LoadTimeSheet()
 
 						if host_name ==# hostname() && user_name ==# $USER
 							" Ok, this is our section, so remember the section number
-							let s:current_section_number = s:max_sections
-							let s:saved_sections[s:max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
+							let s:current_section_number = max_sections
+							let s:saved_sections[max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
 
 						else
 							" skip this section
@@ -1187,12 +1187,12 @@ function! s:TimeKeeper_LoadTimeSheet()
 								call s:TimeKeeper_ReportError("Invalid Timesheet format. Ignoring user section. section: " . item)
 							endif
 							let skip_section = 1
-							let s:saved_sections[s:max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
+							let s:saved_sections[max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
 						endif
 					else
 						if skip_section == 1
 							" store the skipped sections of the timekeeper file
-							call add(s:saved_sections[s:max_sections],item)
+							call add(s:saved_sections[max_sections],item)
 
 						else
 							let values = split(item,',',1)
@@ -1203,12 +1203,13 @@ function! s:TimeKeeper_LoadTimeSheet()
 					endif
 				endfor
 
-				if len(s:saved_sections) == 0
-					let s:saved_sections[s:max_sections] = [ '[' . hostname() . ':' . $USER . ']' ]
-				endif
-
-				let s:max_sections = s:max_sections + 1
+				let max_sections = max_sections + 1
 				let s:user_last_update_time = localtime()
+			endif
+
+			" was the file empty/or no sections were found?
+			if len(s:saved_sections) == 0
+				let s:saved_sections[0] = [ '[' . hostname() . ':' . $USER . ']' ]
 			endif
 		endif
 
