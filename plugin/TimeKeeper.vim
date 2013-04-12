@@ -983,13 +983,13 @@ function! s:TimeKeeper_ImportJob(values)
 		let job.total_time		 = a:values[3]
 		let job.last_commit_time = a:values[4]
 
-		if len(a:values) == 6
+		if len(a:values) >= 6
 			let job.status			 = a:values[5]
 		else
 			let job.status			 = 'created'
 		endif
 
-		if len(a:values) == 7
+		if len(a:values) >= 7
 			let job.notes			= a:values[6]
 		else
 			let job.notes			= ''
