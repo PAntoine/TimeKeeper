@@ -1164,6 +1164,7 @@ function! s:TimeKeeper_LoadTimeSheet()
 				let result = 1
 				let skip_section = 0
 				let max_sections = 0
+				let found_section = 0
 				let s:current_section_number = 0
 
 				for item in timesheet_data
@@ -1180,6 +1181,7 @@ function! s:TimeKeeper_LoadTimeSheet()
 							" Ok, this is our section, so remember the section number
 							let s:current_section_number = max_sections
 							let s:saved_sections[max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
+							let found_section = 1
 
 						else
 							" skip this section
@@ -1207,8 +1209,14 @@ function! s:TimeKeeper_LoadTimeSheet()
 				let s:user_last_update_time = localtime()
 			endif
 
-			" was the file empty/or no sections were found?
-			if len(s:saved_sections) == 0
+			if found_section == 0
+				" the section that pertains to this session was not found, add
+				let max_sections = max_sections + 1
+				let s:saved_sections[max_sections] = [ '[' . hostname() . ':' . $USER . ']' ]
+				let s:current_section_number = max_sections
+				
+			elseif len(s:saved_sections) == 0
+				" was the file empty/or no sections were found?
 				let s:saved_sections[0] = [ '[' . hostname() . ':' . $USER . ']' ]
 			endif
 		endif
