@@ -465,7 +465,6 @@ function! TimeKeeper_SaveTimeSheet(create)
 			let output = []
 
 			for saved_section in keys(s:saved_sections)
-				echo "dave_section" . saved_section . " saved: " . join(s:saved_sections[saved_section],",")
 				if saved_section == s:current_section_number
 					" Ok, lets build the output List of lists that need to be written to the file.
 					call add(output,'[' . hostname() . ':' . $USER . ']')
@@ -535,7 +534,7 @@ endfunction
 "	nothing
 "
 function! TimeKeeper_AddAdditionalTime(...)
-	if (a:0 == 2)
+	if a:0 == 2
 		let project_name = a:1
 		let job_name = a:2
 	else
@@ -1165,8 +1164,6 @@ function! s:TimeKeeper_LoadTimeSheet()
 				let s:max_sections = 0
 				let s:current_section_number = 0
 
-				let debug_str = ''
-
 				for item in timesheet_data
 					if item[0] == '['
 						let skip_section = 0
@@ -1176,8 +1173,6 @@ function! s:TimeKeeper_LoadTimeSheet()
 						let divider = stridx(item,":")
 						let host_name = strpart(item,1,divider - 1)
 						let user_name = strpart(item,divider + 1,strlen(item) - 2 - divider)
-
-						let debug_str = debug_str . "host" . host_name . " + " . user_name . '###'
 
 						if host_name ==# hostname() && user_name ==# $USER
 							" Ok, this is our section, so remember the section number
@@ -1193,8 +1188,6 @@ function! s:TimeKeeper_LoadTimeSheet()
 							let s:saved_sections[s:max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
 						endif
 					else
-						echo debug_str
-
 						if skip_section == 1
 							" store the skipped sections of the timekeeper file
 							call add(s:saved_sections[s:max_sections],item)
