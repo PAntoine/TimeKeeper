@@ -30,7 +30,7 @@ then
 		# check for local file first
 		if [[ -w ".timekeeper.tmk" && -r ".timekeeper.tmk" ]];
 		then
-			TIMEKEEPER_TIMESHEET="timekeeper.tmk"
+			TIMEKEEPER_TIMESHEET=".timekeeper.tmk"
 		else
 			# if local not found the search for global 
 			if [[ -w "$HOME/.timekeeper.tmk" && -r "$HOME/.timekeeper.tmk" ]];
@@ -86,6 +86,7 @@ then
 				# if "hostname:username" equal host and user name
 				if [ "${line#*:}" == "$USER" ] && [ "${line%:*}" == "$HOSTNAME" ]
 				then
+					echo "currentr ---"
 					current_section=1
 				fi
 
@@ -107,9 +108,9 @@ then
 		do
 			if [ $index == 0 ];
 			then
-				echo "$i" > "$TIMEKEEPER_TIMESHEET"
+				echo "$i"
 			else
-				echo "$i" >> "$TIMEKEEPER_TIMESHEET"
+				echo "$i"
 			fi
 
 			index=1
