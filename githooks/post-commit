@@ -86,7 +86,6 @@ then
 				# if "hostname:username" equal host and user name
 				if [ "${line#*:}" == "$USER" ] && [ "${line%:*}" == "$HOSTNAME" ]
 				then
-					echo "currentr ---"
 					current_section=1
 				fi
 
@@ -108,9 +107,9 @@ then
 		do
 			if [ $index == 0 ];
 			then
-				echo "$i"
+				echo "$i" > "$TIMEKEEPER_TIMESHEET"
 			else
-				echo "$i"
+				echo "$i" >> "$TIMEKEEPER_TIMESHEET"
 			fi
 
 			index=1
