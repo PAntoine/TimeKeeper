@@ -9,7 +9,7 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     April 1, 2013
+Date:     April 17, 2013
 Version:  2.0.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
@@ -457,5 +457,6 @@ Version   Author Date        Changes
 							 changed so does not pollute the working directory.
 							 Added the task notes window.
 							 Added multi-host/user time tracking.
+							 Fixed a couple of script issues.
 
 vim: ts=4 ft=help tw=78

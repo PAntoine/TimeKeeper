@@ -63,6 +63,11 @@ And the should be it. Once you have done that once then you can set g:TimeKeeper
 	take all the items from all users/machines and merge them into one group. Also, the first item
 	that is found in the file is the one that will be updated.
 
+	added to the timekeeper file. These notes are private (but not encrypted in-anyway)
+	and can only be viewed via timekeeper by the user/host that created the note. So notes that are
+	created on one machine will not be visible on another. Obviously, as the notes are not encypted
+	these can be viewed in the file itself.
+
 ## Git Hooks ##
 
 To set up the Git hooks you will need to do the following in the root directory of the git repository.
@@ -79,6 +84,39 @@ to integrate these with your current hooks. I assume just adding:
    .sh ~/.vim/githooks/prepare-commit-msg $1 $2 $3 
 
 to the end of your current prepare-commit-msg (and do similar for post) will do the job you need.
+
+## TODO ##
+
+1. Sharing/concatenating times.
+    As I work on more than one machine it would be nice to be able to collect the total time from
+    all machines. This should be doable for user and jobs. As the sharing is being done via Git
+	the changes should have been committed, so the times would have been committed to the repo
+	before the sharing, only the total need to be collected.
+
+2. Shared Notes.
+    This is more complicated, as some notes might want to be kept private. So the notes should be
+	able to be encrypted. Sadly the blowfish and zip crypto functions are not exposed a vimscript
+	functions, so can''t be used. There is a blowfish.vim plugin that Yukihiro Nakadaira has
+	written in pure vimscript, which might be the correct solution or a least nick his
+	implementations of the bitwise functions and then write and use xxtea - which should be a
+	bit quicker (but this is vimscript - so speed might not be a issue). Initially I might rot13
+	all messages, as this will at least hide from casual view the other notes.
+
+3. Auto Jobbing.
+	I write code, bad code which never gets finished and is normally loaded with TODO, FIXME
+	and the glorious HACK. These need to be auto added as jobs in the job list. Need to work
+	out when the files need to be scanned as to not cause problems with typing and causing 
+	un-expected pauses in the editor. Could be a problem with some of the bigger files that
+	I have to work with.
+
+4. Session Length.
+	It would be really nice to know how much time I was actually adding to the project in this
+	typing session. So would need to check for session breaks, periods of non-typing by clock
+	time that is greater than an explicit length, and track that. Also be able to track time
+	by the length of the session. I.e. total length of the working day, excluding breaks. Also
+	for simple how well/efficiently I am working how much of my day was actually spent at the
+	keyboard. (obviously adding design, testing and other non-keyboard working times will have to
+	be handled.)
 
 ## Licence and Copyright ##
                     Copyright (c) 2012 - 2013 Peter Antoine
