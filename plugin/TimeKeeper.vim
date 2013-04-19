@@ -1159,12 +1159,12 @@ function! s:TimeKeeper_LoadTimeSheet()
 
 		else
 			let timesheet_data = readfile(g:TimeKeeperFileName)
+			let found_section = 0
+			let max_sections = 0
 			
 			if !empty(timesheet_data)
 				let result = 1
 				let skip_section = 0
-				let max_sections = 0
-				let found_section = 0
 				let s:current_section_number = 0
 
 				for item in timesheet_data
