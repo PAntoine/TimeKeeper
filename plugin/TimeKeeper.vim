@@ -89,7 +89,10 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if !exists("s:TimeKeeperPlugin")
+if exists("s:TimeKeeperPlugin")
+	finish
+endif
+
 " Script Initialisation block												{{{
 	let s:TimeKeeperPlugin = 1
 	let s:TimeKeeperIsTracking = 0
@@ -1694,7 +1697,5 @@ endfunction
 " Start tracking if the user wants us to.
 if g:TimeKeeperStartOnLoad
 	call TimeKeeper_StartTracking()
-endif
-
 endif
 
