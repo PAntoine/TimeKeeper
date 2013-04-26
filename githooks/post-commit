@@ -80,7 +80,7 @@ then
 			# find the current section for the file
 			if [ "${project:0:1}" == "[" ] && [ "${project:0-1}" == "]" ]
 			then
-				line=${project:1:-1}
+				line=${project:1:${#project}-2}
 				current_section=0
 
 				# if "hostname:username" equal host and user name

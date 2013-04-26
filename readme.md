@@ -1,6 +1,6 @@
 # TimeKeeper #
 
-Version 2.0.0
+Version 2.0.1
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -117,6 +117,10 @@ to the end of your current prepare-commit-msg (and do similar for post) will do 
 	for simple how well/efficiently I am working how much of my day was actually spent at the
 	keyboard. (obviously adding design, testing and other non-keyboard working times will have to
 	be handled.)
+
+## Extra Contributor(s) ## 
+
+	GitHub User: mhhf - Bug fixes for version 2.0.1
 
 ## Licence and Copyright ##
                     Copyright (c) 2012 - 2013 Peter Antoine
