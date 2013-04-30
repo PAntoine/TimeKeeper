@@ -104,6 +104,7 @@ endif
 		let s:TimeKeeperCreated   	= ' '
 		let s:TimeKeeperClosed		= '▸'
 		let s:TimeKeeperOpen		= '▾'
+		let s:TimeKeeperHasNote		= '§'
 
 	else
 		let s:TimeKeeperCompleted	= '+'
@@ -112,6 +113,7 @@ endif
 		let s:TimeKeeperCreated		= ' '
 		let s:TimeKeeperClosed		= '-'
 		let s:TimeKeeperOpen		= '+'
+		let s:TimeKeeperHasNote		= '<'
 	endif
 
 	" global settings
@@ -1393,7 +1395,9 @@ function! s:TimeKeeper_UpdateTaskList()
 
 	" we need to be able to write to the buffer
 	setlocal modifiable
+	let temp = @"
 	silent exe "% delete"
+	let @" = temp
 
 	let padding = "               "
 	let len_padding = len(padding)
@@ -1446,11 +1450,18 @@ function! s:TimeKeeper_UpdateTaskList()
 					let marker = s:TimeKeeperCreated
 				endif
 
+				" does this job have a note?
+				if s:project_list[project_name].job[job_name].notes == ''
+					let note_marker = ' '
+				else
+					let note_marker = s:TimeKeeperHasNote
+				endif
+
 				" mark the current job
 				if project_name ==# s:current_project && job_name ==# s:current_job
-					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' *' . job_name . ' ' 
+					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . ' *' . job_name
 				else
-					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . '  ' . job_name . ' ' 
+					let line = ' ' . marker . ' ' . s:TimeKeeper_GetTimeString(s:project_list[project_name].job[job_name].total_time) . '  ' . job_name . ' ' . note_marker
 				endif
 
 				call add(output,line)
@@ -1582,7 +1593,9 @@ function! s:TimeKeeper_ToggleNoteWindow(project_name, job_name)
 		endif
 			
 		setlocal modifiable
+		let temp = @"
 		silent exe "% delete"
+		let @" = temp
 
 		" using the "EOT" char as this will not cause problems with the shell scripts.
 		" should really use the "BELL" for extra lose. :)

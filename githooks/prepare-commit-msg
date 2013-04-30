@@ -155,6 +155,12 @@ then
 					then
 						timekeeper_string="refs #$TIMEKEEPER_ISSUE_ID $elapsed_string"
 
+						# do we want to close the issue as well?
+						if [ "$status" == "completed" ];
+						then
+							timekeeper_string="$timekeeper_string and closes #$TIMEKEEPER_ISSUE_ID"
+						fi
+
 					elif [ "$TIMEKEEPER_OUTPUT_RAW_TIMESTAMP" == "1" ]
 					then
 						timekeeper_string="($project.$job#$time#$elapsed_time)"
