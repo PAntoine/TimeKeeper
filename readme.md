@@ -1,6 +1,6 @@
 # TimeKeeper #
 
-Version 2.0.1
+Version 2.1.0
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -51,22 +51,8 @@ And the should be it. Once you have done that once then you can set g:TimeKeeper
 
 ## Important Changes ##
 
-- The "local file" mechanism has changed. As the git hooks simply look for a local file and then
-	use it, so should the plugin. It also solves the problem of backing up the log file as it can
-	be added to the repository. (although this is not a good idea as multiple machines can get out
-	of step, if you do not follow good update protocol). 
-
-- The format of the .timekeeper.tmk files have also changed. The most important change is that
-	it now has sections for each of the users and devices that timekeeper is running on. This change
-	will work silently and will bring a file forward. Older versions of the code will do strange but
-	non-destructive things will the file. Older versions will remove the notes, the state and will
-	take all the items from all users/machines and merge them into one group. Also, the first item
-	that is found in the file is the one that will be updated.
-
-	added to the timekeeper file. These notes are private (but not encrypted in-anyway)
-	and can only be viewed via timekeeper by the user/host that created the note. So notes that are
-	created on one machine will not be visible on another. Obviously, as the notes are not encypted
-	these can be viewed in the file itself.
+- When an issue is closed. Any commit will have have Redmine "#closes" reference added.
+- Issues with notes now have a marker.
 
 ## Git Hooks ##
 
@@ -118,7 +104,7 @@ to the end of your current prepare-commit-msg (and do similar for post) will do 
 	keyboard. (obviously adding design, testing and other non-keyboard working times will have to
 	be handled.)
 
-## Extra Contributor(s) ## 
+## Extra Contributor(s) ##
 
 	GitHub User: mhhf - Bug fixes for version 2.0.1
 

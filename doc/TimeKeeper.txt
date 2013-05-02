@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     April 26, 2013
-Version:  2.0.1
+Date:     May 2, 2013
+Version:  2.1.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -146,7 +146,7 @@ Example of the task list:
 
 	▾ *timekeeper      0:00:14
 	 • 0:00:00  testing_task 
-	 ✗ 0:00:14 *master 
+	 ✗ 0:00:14 *master §
 
 	▸  default         0:00:00
 
@@ -161,6 +161,8 @@ manage this).
 The notes are stored with the task time data and is saved as a single lump of
 data. This means that it should be possible to commit the file to a VCS and
 have it work across machines.
+
+Any issue with notes will have a '§' after then title.
 
 
 ==============================================================================
@@ -463,5 +465,8 @@ Version   Author Date        Changes
 							 - Guard did not work correctly.
 							 - bash command not portable.
 							 Applied the supplied changes.
+2.1.0     PA     03.05.2013  Now when issue is closed then commit will add a redmine
+                             closes reference.
+							 Added marker for items with notes.
 
 vim: ts=4 ft=help tw=78
