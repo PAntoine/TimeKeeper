@@ -94,7 +94,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if exists("s:TimeKeeperPlugin") && 0
+if exists("s:TimeKeeperPlugin")
 	finish
 endif
 
