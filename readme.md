@@ -1,6 +1,6 @@
 # TimeKeeper #
 
-Version 2.1.0
+Version 2.2.0
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -51,8 +51,8 @@ And the should be it. Once you have done that once then you can set g:TimeKeeper
 
 ## Important Changes ##
 
-- When an issue is closed. Any commit will have have Redmine "#closes" reference added.
-- Issues with notes now have a marker.
+- If TimeKeeper in Local mode then don`t accept any times from other instances.
+  This can be overridden by two new globals, see the docs.
 
 ## Git Hooks ##
 

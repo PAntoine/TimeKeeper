@@ -288,6 +288,13 @@ g:TimeKeeperTagPrefix                               *g:TimeKeeperTagPrefix*
 This is the prefix to the tag that is to be removed before the job name is taken
 from the tag.  
 
+g:TimeKeeperCurrentOnlyWhenLocal					*g:TimeKeeperCurrentOnlyWhenLocal*
+Only record the time for the current instance when the current instance is using
+a local file. [1]
+
+g:TimeKeeperDontChangeProjectWhenLocal				*g:TimeKeeperDontChangeProjectWhenLocal*
+Do not change project when the current instance is local. [1]
+
 g:TimeKeeperStartOnLoad								*g:TimeKeeperStartOnLoad*
 Start the TimeKeeper on vim load, this should not be done before the default file has
 been created by running the start.
@@ -468,5 +475,7 @@ Version   Author Date        Changes
 2.1.0     PA     03.05.2013  Now when issue is closed then commit will add a redmine
                              closes reference.
 							 Added marker for items with notes.
-
+2.2.0     PA     07.05.2013  Now if local will not except times from other instances.
+                             Improved server detection.
+			
 vim: ts=4 ft=help tw=78

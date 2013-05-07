@@ -75,9 +75,14 @@
 "                                            the tag.
 "			g:TimeKeeperDontUseUnicode		 If exists then the Task List will use standard
 "                                            ascii chars and the extended chars. [0]
+"			g:TimeKeeperCurrentOnlyWhenLocal Only record the time for the current instance
+"                                            when the current instance is using a local file. [1]
+"			g:TimeKeeperDontChangeProjectWhenLocal
+"                                            Do not change project when the current instance
+"                                            is local. [1]
 "           g:TimeKeeperStartOnLoad          Start the TimeKeeper on vim load, this 
 "                                            should not be done before the default file
-"                                            has been created by running the start.
+"                                            has been created by running the start. [0]
 "
 "   author: Peter Antoine
 "     date: 16/11/2012 18:05:21
@@ -89,7 +94,7 @@
 "
 " This plugin has a global dictionary so the plugin should only be loaded ones.
 "
-if exists("s:TimeKeeperPlugin")
+if exists("s:TimeKeeperPlugin") && 0
 	finish
 endif
 
@@ -151,8 +156,16 @@ endif
 	if !exists("g:TimeKeeperFileName")					" What file should the TimeKeeper store the timesheet in.
 		if filewritable('.timekeeper.tmk') || filereadable('.timekeeper.tmk')	" If the file exists try to use, it will fail later.
 			let g:TimeKeeperFileName = '.timekeeper.tmk'
+			let s:using_local_file = 1
 		else
 			let g:TimeKeeperFileName = $HOME . '/' . '.timekeeper.tmk'			" else default to the global one
+			let s:using_local_file = 0
+		endif
+	else
+		if g:TimeKeeperFileName == '.timekeeper.tmk'
+			let s:using_local_file = 1
+		else
+			let s:using_local_file = 0
 		endif
 	endif
 
@@ -180,6 +193,14 @@ endif
 		endif
 	endif
 
+	if !exists("g:TimeKeeperCurrentOnlyWhenLocal")			" Don't use the server code if the current instance is using a local file.
+		let g:TimeKeeperCurrentOnlyWhenLocal = 1
+	endif
+	if !exists("g:TimeKeeperDontChangeProjectWhenLocal")	" Don't change project if local in the current instance
+		let g:TimeKeeperDontChangeProjectWhenLocal = 1
+	endif
+
+
 	" Set the flag start on Load
 	if !exists("g:TimeKeeperStartOnLoad")
 		let g:TimeKeeperStartOnLoad = 0
@@ -203,7 +224,7 @@ endif
 	let s:file_update_time = localtime()
 	let s:start_editor_time = localtime()
 	let s:start_tracking_time = 0
-	
+
 	" internal window states
 	let s:tasklist_help = 0
 	let s:note_window_open = 0
@@ -302,8 +323,11 @@ function! TimeKeeper_StartTracking()
 	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
 	au TimeKeeper VimLeave    * nested call TimeKeeper_StopTracking()
 
-	if g:TimeKeeperUseGitProjectBranch
-		au TimeKeeper CmdwinLeave : call s:TimeKeeper_CheckForCWDChange()
+	" do we want to know when the current directory is changing.
+	if s:using_local_file == 0 || g:TimeKeeperDontChangeProjectWhenLocal != 1
+		if g:TimeKeeperUseGitProjectBranch
+			au TimeKeeper CmdwinLeave : call s:TimeKeeper_CheckForCWDChange()
+		endif
 	endif
 endfunction
 "																			}}}
@@ -517,7 +541,9 @@ endfunction
 "	nothing
 "
 function! TimeKeeper_IsServer()
-	if s:current_server == ''
+	" we are only a server when we are accepting other times from other
+	" instances of vim.
+	if s:current_server == '' && (g:TimeKeeperCurrentOnlyWhenLocal != 1 || s:using_local_file != 1)
 		return 'yes'
 	else
 		return 'no'
@@ -688,6 +714,15 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time, force)
 	
 	let job.total_time += a:time
 	let s:project_list[a:project_name].total_time += a:time
+
+	echo "current " . index(split(serverlist()),s:current_server) . " " . remote_expr(s:current_server,'TimeKeeper_IsServer()')
+
+	" check to see if the current server still exists
+	if s:current_server != '' && (index(split(serverlist()),s:current_server) == -1 || remote_expr(s:current_server,'TimeKeeper_IsServer()') != 'yes')
+		" first find which server we are going to write to
+		echo "is missing"
+		call s:TimeKeeper_FindServer()
+	endif
 
 	" if we are master do the update
 	if s:current_server == ''
@@ -900,48 +935,51 @@ function! s:TimeKeeper_FindServer()
 	let old_server = s:current_server
 	let s:current_server = ''
 
-	" only bother checking if have clientserver
-	if (has('clientserver'))
-		let server_list = split(serverlist())
+	" are we local only if so then we never change server.
+	if s:using_local_file != 1 || g:TimeKeeperCurrentOnlyWhenLocal != 1
+		" only bother checking if have clientserver
+		if (has('clientserver'))
+			let server_list = split(serverlist())
 
-		for server in server_list
-			if server != v:servername
-				try
-					if remote_expr(server,'TimeKeeper_IsServer()') == 'yes'
-						let s:current_server = server
-						break
-					endif
-				catch /E449/
-					" do nothing - it is not running the script
-				endtry
-			endif
-		endfor
-	endif
+			for server in server_list
+				if server != v:servername
+					try
+						if remote_expr(server,'TimeKeeper_IsServer()') == 'yes'
+							let s:current_server = server
+							break
+						endif
+					catch /E449/
+						" do nothing - it is not running the script
+					endtry
+				endif
+			endfor
+		endif
 
-	if (s:current_server == '') && (old_server != s:current_server)
-		call s:TimeKeeper_UpdateTimeSheet()
+		if (s:current_server == '') && (old_server != s:current_server)
+			call s:TimeKeeper_UpdateTimeSheet()
+		endif
 	endif
 endfunction
-"																			}}}
-" FUNCTION: s:TimeKeeper_ReportError(error_message)  						{{{
-"
+"		 	 	  																}}}
+" FUNCTION: s:TimeKeeper_ReportError(error_message)  							{{{
+"        
 " This function will report an error that occurred.
-"
-" vars:
+"        
+" vars:  
 "	error_message	This is the error/warning to report.
-"
+"        
 function! s:TimeKeeper_ReportError(error_message)
 	echohl WarningMsg
 	echomsg a:error_message
 	echohl Normal
 endfunction
-"																			}}}
+"		    																	}}}
 " FUNCTION: s:TimeKeeper_AddJob(project_name,job_name)  						{{{
-"
+"    
 " This function will add a job to the project/job database. If the project
-" does not exist it will be created, and if the job does not exist that will
+" does not it exist it will be created, and if the job does not exist that will
 " also be created as well.
-"
+"     
 " vars:
 "	project_name	The project that the job should be created in.
 " 	job_name		This is the job to create.
