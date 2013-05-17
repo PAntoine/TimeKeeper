@@ -10,7 +10,7 @@
                                                                             ~
 Author:	  Peter Antoine
 Date:     May 2, 2013
-Version:  2.1.0
+Version:  2.3.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -477,5 +477,7 @@ Version   Author Date        Changes
 							 Added marker for items with notes.
 2.2.0     PA     07.05.2013  Now if local will not except times from other instances.
                              Improved server detection.
+2.3.0     PA     xx.05.2013  Removed debug.
+                             Added nospell to syntax lines.
 			
 vim: ts=4 ft=help tw=78

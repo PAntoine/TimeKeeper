@@ -715,12 +715,9 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time, force)
 	let job.total_time += a:time
 	let s:project_list[a:project_name].total_time += a:time
 
-	echo "current " . index(split(serverlist()),s:current_server) . " " . remote_expr(s:current_server,'TimeKeeper_IsServer()')
-
 	" check to see if the current server still exists
 	if s:current_server != '' && (index(split(serverlist()),s:current_server) == -1 || remote_expr(s:current_server,'TimeKeeper_IsServer()') != 'yes')
 		" first find which server we are going to write to
-		echo "is missing"
 		call s:TimeKeeper_FindServer()
 	endif
 

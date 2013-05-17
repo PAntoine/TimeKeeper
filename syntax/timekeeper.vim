@@ -33,8 +33,8 @@ syn match	tkMarker		"▾ "	contained containedin=tkProjectLine nextgroup=tkProje
 syn match	tkMarker		"- "	contained containedin=tkProjectLine nextgroup=tkProjectName
 syn match	tkMarker		"+ "	contained containedin=tkProjectLine nextgroup=tkProjectName
 
-syn match	tkProjectName			"[0-9A-Za-z\._#]\+"					contained containedin=tkProjectLine nextgroup=tkTime
-syn match	tkCurrentProjectName	"*[0-9A-Za-z\._#]\+"				contained containedin=tkProjectLine nextgroup=tkTime
+syn match	tkProjectName			"[0-9A-Za-z\._#]\+"					contained containedin=tkProjectLine nextgroup=tkTime contains=@NoSpell
+syn match	tkCurrentProjectName	"*[0-9A-Za-z\._#]\+"				contained containedin=tkProjectLine nextgroup=tkTime contains=@NoSpell
 syn match 	tkTime					"[0-9]\+\:[0-9][0-9]\:[0-9][0-9]"	contained containedin=tkProjectLine,tkJobLine nextgroup=tkJobName
 
 " syntax for the job line
