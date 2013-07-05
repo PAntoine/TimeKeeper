@@ -43,7 +43,10 @@ then
 	TIMEKEEPER_TIMESHEET="$HOME/.timekeeper.tmk"
 fi
 
-TIMEKEEPER_DIRECTORY="test_this"
+if [ "$TIMEKEEPER_DIRECTORY" == "" ];
+then
+	TIMEKEEPER_DIRECTORY=".timekeeper"
+fi
 
 if [[ -d $TIMEKEEPER_DIRECTORY ]];
 then
