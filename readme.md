@@ -1,6 +1,6 @@
 # TimeKeeper #
 
-Version 2.3.0
+Version 3.0.0
 
 A timekeeper plugin for vim to track you using automatically.
 
@@ -49,10 +49,26 @@ It would be a good idea to map the to toggle function to a key, i.e.:
 And the should be it. Once you have done that once then you can set g:TimeKeeperStartOnLoad to
 1 and then TimeKeeper will start every time vim loads.
 
+If you plan to use project local tracking, the setting the following option in your vimrc would
+be a good plan:
+	
+	:set g:TimeKeeperUseFlatFile = 0
+
+This will use a directory structure for the timekeeper files for user/machines to allow for the
+timekeeper files to avoid merges when committed to an SCM. Also, some of the following goodness
+is going to be only available to directory file users.
+
 ## Important Changes ##
 
-- If TimeKeeper in Local mode then don`t accept any times from other instances.
-  This can be overridden by two new globals, see the docs.
+- File Format
+An option has been added to use a directory structure for the users tracking files. This file is
+designed not to clash with the other users so that it avoids merge conflicts. This does mean that
+the flat file will have to be converted to the new format. You will need to run the conversion
+script for that. This option should only be used if you are intending to use local trackers. It will
+work for global tracking but is of no real use.
+
+If you want to use the new format (on *nix) you can run the script script/convert_to_dir.sh in the
+script directory in every project that you use it in, and then set the flag.
 
 ## Git Hooks ##
 
@@ -88,12 +104,19 @@ to the end of your current prepare-commit-msg (and do similar for post) will do 
 	bit quicker (but this is vimscript - so speed might not be a issue). Initially I might rot13
 	all messages, as this will at least hide from casual view the other notes.
 
+	This is now fixable, now having the directory structure for timesheets, a general timesheet
+	can be created as all "ALL_CAPITALS" jobs placed into there and viewable to all users.
+
 3. Auto Jobbing.
 	I write code, bad code which never gets finished and is normally loaded with TODO, FIXME
 	and the glorious HACK. These need to be auto added as jobs in the job list. Need to work
 	out when the files need to be scanned as to not cause problems with typing and causing 
 	un-expected pauses in the editor. Could be a problem with some of the bigger files that
 	I have to work with.
+    
+	With the directory structure and the shared notes file, the auto-jobbing can be added to this
+	file. If it uses the tags a specified above, these can be germinate jobs that always exist
+	and all the jobs added to this.
 
 4. Session Length.
 	It would be really nice to know how much time I was actually adding to the project in this

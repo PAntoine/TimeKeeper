@@ -80,6 +80,13 @@
 "			g:TimeKeeperDontChangeProjectWhenLocal
 "                                            Do not change project when the current instance
 "                                            is local. [1]
+"			g:TimeKeeperUseFlatFile			 Use the old formatted flat file. If this is
+"                                            set to zero then use the newer dirtory format that
+"                                            works better with SCM as the different files are
+"                                            only changed by different uses on different machines
+"                                            so that it should be immune to merge conflicts. 
+"                                            This defaults to on as it makes it backwards
+"                                            compatible. [1]
 "           g:TimeKeeperStartOnLoad          Start the TimeKeeper on vim load, this 
 "                                            should not be done before the default file
 "                                            has been created by running the start. [0]
@@ -153,19 +160,35 @@ endif
 	"	endif
 	"endif
 
-	if !exists("g:TimeKeeperFileName")					" What file should the TimeKeeper store the timesheet in.
-		if filewritable('.timekeeper.tmk') || filereadable('.timekeeper.tmk')	" If the file exists try to use, it will fail later.
-			let g:TimeKeeperFileName = '.timekeeper.tmk'
-			let s:using_local_file = 1
+	if !exists("g:TimeKeeperUseFlatFile")				" Use the old flat file, if 0 use the new directory structure.
+		let g:TimeKeeperUseFlatFile = 1				" default to old for backwards compatibility.
+	endif
+
+	if g:TimeKeeperUseFlatFile == 1
+		if !exists("g:TimeKeeperFileName")					" What file should the TimeKeeper store the timesheet in.
+			if filewritable('.timekeeper.tmk') || filereadable('.timekeeper.tmk')	" If the file exists try to use, it will fail later.
+				let g:TimeKeeperFileName = '.timekeeper.tmk'
+				let s:using_local_file = 1
+			else
+				let g:TimeKeeperFileName = $HOME . '/' . '.timekeeper.tmk'			" else default to the global one
+				let s:using_local_file = 0
+			endif
 		else
-			let g:TimeKeeperFileName = $HOME . '/' . '.timekeeper.tmk'			" else default to the global one
-			let s:using_local_file = 0
+			if g:TimeKeeperFileName == '.timekeeper.tmk'
+				let s:using_local_file = 1
+			else
+				let s:using_local_file = 0
+			endif
 		endif
 	else
-		if g:TimeKeeperFileName == '.timekeeper.tmk'
-			let s:using_local_file = 1
-		else
-			let s:using_local_file = 0
+		if !exists("g:TimeKeeperFileName")					" has the user set the directory for timekeeper
+			if isdirectory( $HOME . '/' . ".timekeeper")	" Ok, there is a directory in the root, user global.
+				let s:using_local_file = 0
+				let g:TimeKeeperFileName = $HOME . '/' . '.timekeeper'
+			else
+				let s:using_local_file = 1					" OK, default to local usage
+				let g:TimeKeeperFileName = '.timekeeper'
+			endif
 		endif
 	endif
 
@@ -200,6 +223,9 @@ endif
 		let g:TimeKeeperDontChangeProjectWhenLocal = 1
 	endif
 
+	if !exists("g:TimeKeeperUseFlatFile")					" Use the old flat file format. Defaults to not.
+		let g:TimeKeeperUseFlatFile = 0
+	endif
 
 	" Set the flag start on Load
 	if !exists("g:TimeKeeperStartOnLoad")
@@ -482,52 +508,14 @@ function! TimeKeeper_SaveTimeSheet(create)
 
 	" Only update the file if we are the server else leave it alone
 	if s:current_server == ''
-		if !a:create && !filewritable(g:TimeKeeperFileName)
-			call s:TimeKeeper_ReportError("time sheet file is not writable: " . g:TimeKeeperFileName)
+		if g:TimeKeeperUseFlatFile == 1
+			let result = s:TimeKeeper_SaveFlatFile(a:create)
 		else
-			" check to make sure the timesheet has not been updated elsewhere (i.e. the githooks)
-			if s:file_update_time < getftime(g:TimeKeeperFileName)
-				call s:TimeKeeper_LoadTimeSheet()
-			endif
-
-			" The list that will become the file
-			let output = []
-
-			for saved_section in keys(s:saved_sections)
-				if saved_section == s:current_section_number
-					" Ok, lets build the output List of lists that need to be written to the file.
-					call add(output,'[' . hostname() . ':' . $USER . ']')
-
-					let project_list = sort(keys(s:project_list))
-
-					for project_name in project_list
-						let job_list = sort(keys(s:project_list[project_name].job))
-
-						for job_name in job_list
-							let line = project_name . ',' . job_name . ',' . 
-								\ s:project_list[project_name].job[job_name].start_time . ',' .
-								\ s:project_list[project_name].job[job_name].total_time . ',' .
-								\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
-								\ s:project_list[project_name].job[job_name].status . ',' .
-								\ s:project_list[project_name].job[job_name].notes
-
-							call add(output,line)
-						endfor
-					endfor
-				else
-					" Output the saved section - unchanged
-					call extend(output,s:saved_sections[saved_section])
-				endif
-			endfor
-			
-			" write the result to a file
-			call writefile(output,g:TimeKeeperFileName)
-
-			" update the times
-			let s:last_update_time = localtime()
-			let s:file_update_time = getftime(g:TimeKeeperFileName)
+			let result = s:TimeKeeper_SaveDirFile(a:create)
 		endif
 	endif
+
+	return result
 endfunction
 "																			}}}
 " FUNCTION: TimeKeeper_IsServer()  											{{{
@@ -1164,6 +1152,151 @@ function! s:TimeKeeper_SetJobNameFromGitRepository()
 	endif
 endfunction
 "																			}}}
+" FUNCTION: s:TimeKeeper_LoadFlatFile()  									{{{
+"
+" This function will load the timesheet that is given. If the timesheet file given
+" does not exist it will return an error.
+"
+" The format of the time sheet is a basic comma separated file that has the following
+" format:
+" 
+"      project, job, start_time, total_time
+"
+" Not all times are seconds from the start of the unix epoc.
+"
+" vars:
+"	none
+"
+" returns:
+"	1 - If the database could be loaded.
+"	0 - If the database failed to load.
+"
+function! s:TimeKeeper_LoadFlatFile()
+	let result = 0
+
+	if !filewritable(g:TimeKeeperFileName)
+		call s:TimeKeeper_ReportError("Timesheet file cannot be written")
+	
+	elseif !filereadable(g:TimeKeeperFileName)
+		call s:TimeKeeper_ReportError("Timesheet file cannot be read")
+
+	else
+		let timesheet_data = readfile(g:TimeKeeperFileName)
+		let found_section = 0
+		let max_sections = 0
+		
+		if !empty(timesheet_data)
+			let result = 1
+			let skip_section = 0
+			let s:current_section_number = 0
+
+			for item in timesheet_data
+				if item[0] == '['
+					let skip_section = 0
+					let max_sections = max_sections + 1
+
+					" we have a user marker, is it ours?
+					let divider = stridx(item,":")
+					let host_name = strpart(item,1,divider - 1)
+					let user_name = strpart(item,divider + 1,strlen(item) - 2 - divider)
+
+					if host_name ==# hostname() && user_name ==# $USER
+						" Ok, this is our section, so remember the section number
+						let s:current_section_number = max_sections
+						let s:saved_sections[max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
+						let found_section = 1
+
+					else
+						" skip this section
+						if host_name == '' || user_name == ''
+							call s:TimeKeeper_ReportError("Invalid Timesheet format. Ignoring user section. section: " . item)
+						endif
+						let skip_section = 1
+						let s:saved_sections[max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
+					endif
+				else
+					if skip_section == 1
+						" store the skipped sections of the timekeeper file
+						call add(s:saved_sections[max_sections],item)
+
+					else
+						let values = split(item,',',1)
+
+						"Should now have a list of the items in the line
+						call s:TimeKeeper_ImportJob(values)
+
+						" ok, successfully loaded the timesheet
+						let result = 1
+					endif
+				endif
+			endfor
+
+			let max_sections = max_sections + 1
+			let s:user_last_update_time = localtime()
+		endif
+
+		if found_section == 0
+			" the section that pertains to this session was not found, add
+			let max_sections = max_sections + 1
+			let s:saved_sections[max_sections] = [ '[' . hostname() . ':' . $USER . ']' ]
+			let s:current_section_number = max_sections
+			
+		elseif len(s:saved_sections) == 0
+			" was the file empty/or no sections were found?
+			let s:saved_sections[0] = [ '[' . hostname() . ':' . $USER . ']' ]
+		endif
+		
+		let s:file_update_time = getftime(g:TimeKeeperFileName)
+	endif
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_LoadDirectoryFile() 								{{{
+"
+" This function will load the timesheet that is given, it will load it from
+" file from the user and machine if it finds it.
+"
+" The format of the time sheet is a basic comma separated file that has the following
+" format:
+" 
+"      project, job, start_time, total_time
+"
+" Not all times are seconds from the start of the unix epoc.
+"
+" vars:
+"	none
+"
+" returns:
+"	1 - If the database could be loaded.
+"	0 - If the database failed to load.
+"
+function! s:TimeKeeper_LoadDirectoryFile()
+	let result = 0
+
+	let filename = g:TimeKeeperFileName . '/' . hostname() . ':' . $USER . '.tmk' 
+	
+	if !filewritable(filename)
+		call s:TimeKeeper_ReportError("Timesheet file cannot be written")
+	
+	elseif !filereadable(filename)
+		call s:TimeKeeper_ReportError("Timesheet file cannot be read")
+
+	else
+		let timesheet_data = readfile(filename)
+
+		for item in timesheet_data
+			let values = split(item,',',1)
+
+			"Should now have a list of the items in the line
+			call s:TimeKeeper_ImportJob(values)
+		endfor
+
+		" ok, successfully loaded the timesheet
+		let result = 1
+	endif
+
+	return result
+endfunction
+"																			}}}
 " FUNCTION: s:TimeKeeper_LoadTimeSheet()  									{{{
 "
 " This function will load the timesheet that is given. If the timesheet file given
@@ -1186,82 +1319,25 @@ endfunction
 function! s:TimeKeeper_LoadTimeSheet()
 	let result = 0
 	
-	" If the file does not exist
-	if empty(glob(g:TimeKeeperFileName))
-		call s:TimeKeeper_RequestCreate()
-	else
-		
-		if !filewritable(g:TimeKeeperFileName)
-			call s:TimeKeeper_ReportError("Timesheet file cannot be written")
-		
-		elseif !filereadable(g:TimeKeeperFileName)
-			call s:TimeKeeper_ReportError("Timesheet file cannot be read")
-
+	if g:TimeKeeperUseFlatFile == 1
+		if empty(glob(g:TimeKeeperFileName))
+			call s:TimeKeeper_RequestCreate(0)
 		else
-			let timesheet_data = readfile(g:TimeKeeperFileName)
-			let found_section = 0
-			let max_sections = 0
-			
-			if !empty(timesheet_data)
-				let result = 1
-				let skip_section = 0
-				let s:current_section_number = 0
-
-				for item in timesheet_data
-					if item[0] == '['
-						let skip_section = 0
-						let max_sections = max_sections + 1
-
-						" we have a user marker, is it ours?
-						let divider = stridx(item,":")
-						let host_name = strpart(item,1,divider - 1)
-						let user_name = strpart(item,divider + 1,strlen(item) - 2 - divider)
-
-						if host_name ==# hostname() && user_name ==# $USER
-							" Ok, this is our section, so remember the section number
-							let s:current_section_number = max_sections
-							let s:saved_sections[max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
-							let found_section = 1
-
-						else
-							" skip this section
-							if host_name == '' || user_name == ''
-								call s:TimeKeeper_ReportError("Invalid Timesheet format. Ignoring user section. section: " . item)
-							endif
-							let skip_section = 1
-							let s:saved_sections[max_sections] = [ '[' . host_name . ':' . user_name . ']' ]
-						endif
-					else
-						if skip_section == 1
-							" store the skipped sections of the timekeeper file
-							call add(s:saved_sections[max_sections],item)
-
-						else
-							let values = split(item,',',1)
-
-							"Should now have a list of the items in the line
-							call s:TimeKeeper_ImportJob(values)
-						endif
-					endif
-				endfor
-
-				let max_sections = max_sections + 1
-				let s:user_last_update_time = localtime()
-			endif
-
-			if found_section == 0
-				" the section that pertains to this session was not found, add
-				let max_sections = max_sections + 1
-				let s:saved_sections[max_sections] = [ '[' . hostname() . ':' . $USER . ']' ]
-				let s:current_section_number = max_sections
-				
-			elseif len(s:saved_sections) == 0
-				" was the file empty/or no sections were found?
-				let s:saved_sections[0] = [ '[' . hostname() . ':' . $USER . ']' ]
-			endif
+			call s:TimeKeeper_LoadFlatFile()
 		endif
 
 		let s:file_update_time = getftime(g:TimeKeeperFileName)
+	else
+		if isdirectory(g:TimeKeeperFileName)
+			call s:TimeKeeper_LoadDirectoryFile()
+		else
+			if !empty(glob(g:TimeKeeperFileName))
+				call s:TimeKeeper_ReportError("Timesheet:" . g:TimeKeeperFileName . " points to a file and not a directory.")
+			else
+				" Ok, create the timekeeper file
+				call s:TimeKeeper_RequestCreate(1)
+			endif
+		endif
 	endif
 
 	return result
@@ -1298,16 +1374,149 @@ function! s:TimeKeeper_UpdateTimeSheet()
 	endif
 endfunction
 "																			}}}
-" FUNCTION: s:TimeKeeper_RequestCreate()  									{{{
+" FUNCTION: s:TimeKeeper_SaveDirFile(create) 		 						{{{
+"
+" This function will save the timesheet to the given file in the timesheet folder.
+"
+" The format of the time sheet is a basic comma separated file that has the following
+" format:
+" 
+"      project, job, start_time, total_time
+"
+" Not all times are seconds from the start of the unix epoc.
+"
+" vars:
+"	create	The flag to create the timesheet if the time sheet does not exist.
+"
+" returns:
+"	1 - If the database could be loaded.
+"	0 - If the database failed to load.
+"
+function! s:TimeKeeper_SaveDirFile(create)
+	let result = 0
+	let filename = g:TimeKeeperFileName . '/' . hostname() . ':' . $USER . '.tmk' 
+
+	" check that the directory exists?
+	if !a:create && !isdirectory(g:TimeKeeperFileName)
+		call s:TimeKeeper_ReportError("time sheet directory is not a directory: " . g:TimeKeeperFileName)
+	else
+		" check to make sure the timesheet has not been updated elsewhere (i.e. the githooks)
+		if s:file_update_time < getftime(filename)
+			call s:TimeKeeper_LoadDirectoryFile()
+		endif
+
+		" The list that will become the file
+		let output = []
+
+		" Ok, lets build the output List of lists that need to be written to the file.
+		let project_list = sort(keys(s:project_list))
+
+		for project_name in project_list
+			let job_list = sort(keys(s:project_list[project_name].job))
+
+			for job_name in job_list
+				let line = project_name . ',' . job_name . ',' . 
+					\ s:project_list[project_name].job[job_name].start_time . ',' .
+					\ s:project_list[project_name].job[job_name].total_time . ',' .
+					\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
+					\ s:project_list[project_name].job[job_name].status . ',' .
+					\ s:project_list[project_name].job[job_name].notes
+
+				call add(output,line)
+			endfor
+		endfor
+		
+		if !isdirectory(g:TimeKeeperFileName)
+			call mkdir(g:TimeKeeperFileName,"p",0740)
+		endif
+
+		" write the result to a file
+		call writefile(output,filename)
+
+		" update the times
+		let s:last_update_time = localtime()
+		let s:file_update_time = getftime(filename)
+	endif
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_SaveFlatFile(create)  								{{{
+"
+" This function will save the timesheet to the given file.
+"
+" The format of the time sheet is a basic comma separated file that has the following
+" format:
+" 
+"      project, job, start_time, total_time
+"
+" Not all times are seconds from the start of the unix epoc.
+"
+" vars:
+"	create	The flag to create the timesheet if it does not exist.
+"
+" returns:
+"	1 - If the database could be loaded.
+"	0 - If the database failed to load.
+"
+function! s:TimeKeeper_SaveFlatFile(create)
+	let result = 0
+
+	if !a:create && !filewritable(g:TimeKeeperFileName)
+		call s:TimeKeeper_ReportError("time sheet file is not writable: " . g:TimeKeeperFileName)
+	else
+		" check to make sure the timesheet has not been updated elsewhere (i.e. the githooks)
+		if s:file_update_time < getftime(g:TimeKeeperFileName)
+			call s:TimeKeeper_LoadTimeSheet()
+		endif
+
+		" The list that will become the file
+		let output = []
+
+		for saved_section in keys(s:saved_sections)
+			if saved_section == s:current_section_number
+				" Ok, lets build the output List of lists that need to be written to the file.
+				call add(output,'[' . hostname() . ':' . $USER . ']')
+
+				let project_list = sort(keys(s:project_list))
+
+				for project_name in project_list
+					let job_list = sort(keys(s:project_list[project_name].job))
+
+					for job_name in job_list
+						let line = project_name . ',' . job_name . ',' . 
+							\ s:project_list[project_name].job[job_name].start_time . ',' .
+							\ s:project_list[project_name].job[job_name].total_time . ',' .
+							\ s:project_list[project_name].job[job_name].last_commit_time . ',' .
+							\ s:project_list[project_name].job[job_name].status . ',' .
+							\ s:project_list[project_name].job[job_name].notes
+
+						call add(output,line)
+					endfor
+				endfor
+			else
+				" Output the saved section - unchanged
+				call extend(output,s:saved_sections[saved_section])
+			endif
+		endfor
+		
+		" write the result to a file
+		call writefile(output,g:TimeKeeperFileName)
+
+		" update the times
+		let s:last_update_time = localtime()
+		let s:file_update_time = getftime(g:TimeKeeperFileName)
+	endif
+endfunction
+"																			}}}
+" FUNCTION: s:TimeKeeper_RequestCreate(directory)  							{{{
 "
 " This function will ask the user before creating the timesheet file.
 " 
 " vars:
-"	timesheet	The file to open as a timesheet
+"	directory	create a directory if set to 1, else create a file.
 " returns:
 "	nothing
 "
-function! s:TimeKeeper_RequestCreate()
+function! s:TimeKeeper_RequestCreate(directory)
 	
 	let g:TimeKeeperFileName = input("Please supply TimeKeeper timesheet filename: ",g:TimeKeeperFileName)
 

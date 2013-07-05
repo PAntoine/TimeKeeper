@@ -9,8 +9,8 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     May 2, 2013
-Version:  2.3.0
+Date:     July 5, 2013
+Version:  3.0.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
 For instructions on installing this file, type:
@@ -62,6 +62,17 @@ must tell TimeKeeper where this is. You can do this in your .vimrc by setting
 the |g:TimeKeeperFilename| variable to where the file is.
 
 After this the tracking is automatic and this file will be updated regularly.
+
+If you have set |g:TimeKeeperUseFlatFile| to 0, then you will not get asked 
+this question and the timekeeper file will be created in a directory. This
+file will have the following naming convention.
+>
+ <host_name>:<user_name>
+<
+This allows for the user to have the time tracked on different machines for
+the same project. The reason for the separate files is to reduce the merge
+conflicts if the files are stored inside a SCM (for tracking purposes or for
+use on a server application).
 
 Also, after you have started timetracking at least once, then you can set the
 configuration flag |g:TimeKeeperStartOnLoad| to 1 and it will cause the 
@@ -303,6 +314,13 @@ If you are using the git-hooks the following environment variables can be set
 to change the way that they behave, they do not need to be set as the defaults
 are sensible.
 
+g:TimeKeeperUseFlatFile 							*g:TimeKeeperUseFlatFile*
+Use the old formatted flat file. If this is set to zero then use the newer directory
+format that works better with SCM as the different files are only changed by different
+uses on different machines so that it should be immune to merge conflicts. 
+
+This defaults to on as it makes it backwards compatible. [1]
+
 TIMEKEEPER_DONT_TRACK	[0]							*TIMEKEEPER_DONT_TRACK*
 If this is set to 1, then the commit time will not be added to the end of the
 commit message. 
@@ -352,6 +370,12 @@ should be used in the same way.
 
 	let g:TimeKeeperTagPrefix = $TIMEKEEPER_TAG_PREFIX
 
+TIMEKEEPER_USE_FLAT_FILE							*TIMEKEEPER_USE_FLAT_FILE*
+This should not be needed. But, if you have .timekeeper dir and want to force
+the scripts (githooks) to use the flat file then set this to 1. For consistency
+do the following in the vimrc file, but it is not needed:
+
+	let g:TimeKeeperUseFlatFile = $TIMEKEEPER_USE_FLAT_FILE
 
 ==============================================================================
 7. Git Integration                               *TimeKeeper-git-integration*
@@ -479,5 +503,6 @@ Version   Author Date        Changes
                              Improved server detection.
 2.3.0     PA     xx.05.2013  Removed debug.
                              Added nospell to syntax lines.
+3.0.0     PA     05.07.2013  Added directory formatted files.
 			
 vim: ts=4 ft=help tw=78

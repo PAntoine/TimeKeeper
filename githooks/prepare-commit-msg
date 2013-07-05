@@ -52,6 +52,13 @@
 #         It will only update the time if the timekeeper file is read/writable to
 #         it can update it at the end and stop adding the same time over again.
 #
+#         Directory files:
+#
+#         To make life easier for checked in timesheets the new structure uses
+#         a directory structure the uses the name and machine to hold the time
+#         sheets in. This will reduce/remove the merge conflicts in people that
+#         are sharing the timekeeper file or are using more than one machine.
+#
 # Author: pantoine
 # Date  : 08/12/2012 08:22:20
 #---------------------------------------------------------------------------------
@@ -60,80 +67,129 @@
 #                    Released Under the Artistic Licence
 #---------------------------------------------------------------------------------
 
-if [ "$TIMEKEEPER_DONT_TRACK" != "1" ];
-then
-	timekeeper_string=''
-
-	function TimeKeeper_GetTimeString()
-	{
-		# retrieve the current job name from the git repository
-		current_project=$(basename `git rev-parse --show-toplevel`)
-		current_job=`git rev-parse --abbrev-ref HEAD`
-		
-		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ];
+#---------------------------------------------------------------------------------
+# read_flat_file
+#
+# This function will read the flat file format.
+#---------------------------------------------------------------------------------
+function read_flat_file()
+{
+	if [ "$TIMEKEEPER_TIMESHEET" == "" ];
+	then
+		# check for local file first
+		if [[ -w ".timekeeper.tmk" && -r ".timekeeper.tmk" ]];
 		then
-			git describe --abbrev=0 2> /dev/null
-
-			if [ $? -eq 0 ]
+			TIMEKEEPER_TIMESHEET=".timekeeper.tmk"
+		else
+			# if local not found the search for global 
+			if [[ -w "$HOME/.timekeeper.tmk" && -r "$HOME/.timekeeper.tmk" ]];
 			then
-				current_tag=`git describe --abbrev=0`
-				current_tag=${current_tag#$TIMEKEEPER_TAG_PREFIX}
-					
-				if [ "$current_tag" != "" ]
-				then
-					current_job=$current_tag
-				fi
+				TIMEKEEPER_TIMESHEET="$HOME/.timekeeper.tmk"
 			fi
 		fi
-		
-		# if the user has not specified a issue id, then check to see if the
-		# tag has one, if not check to see if the branch has one. Use the first
-		# one that is found.
-		if [ "$TIMEKEEPER_ISSUE_ID" == "" ];
-		then
-			TIMEKEEPER_ISSUE_ID=${current_job/${current_job%%#[0-9]*}/}
-			TIMEKEEPER_ISSUE_ID=${TIMEKEEPER_ISSUE_ID:1}
-		fi
-	
-		if [ "$TIMEKEEPER_TIMESHEET" == "" ];
-		then
-			# check for local file first
-			if [[ -w ".timekeeper.tmk" && -r ".timekeeper.tmk" ]];
+	fi
+
+	# if it's readable/writable - carry on
+	if [[ -w "$TIMEKEEPER_TIMESHEET" && -r "$TIMEKEEPER_TIMESHEET" ]];
+	then
+		# default on -for files that don't have section headers
+		current_section=1
+
+		# read in the timesheet file
+		while IFS=, read -r project job start time last_commit status note;
+		do
+			# find the current section for the file
+			if [ "${project:0:1}" == "[" ] && [ "${project:0-1}" == "]" ]
 			then
-				TIMEKEEPER_TIMESHEET=".timekeeper.tmk"
-			else
-				# if local not found the search for global 
-				if [[ -w "$HOME/.timekeeper.tmk" && -r "$HOME/.timekeeper.tmk" ]];
+				line=${project:1:${#project}-2}
+				current_section=0
+
+				if [ "${line#*:}" == "$USER" ] && [ "${line%:*}" == "$HOSTNAME" ]
 				then
-					TIMEKEEPER_TIMESHEET="$HOME/.timekeeper.tmk"
+					current_section=1
 				fi
+
+			elif [ "$current_section" == "1" ] && [ "$current_project" == "$project" ] && [ "$current_job" == "$job" ]
+			then
+				# Ok, we found the item that we want
+
+				elapsed_time=$(($time-$last_commit))
+
+				if [ $elapsed_time -lt 3600 ];
+				then
+					elapsed_string="@$((($elapsed_time/60)%60))min"
+				else
+					elapsed_string="@$(($elapsed_time/3600))h$((($elapsed_time/60)%60))"
+				fi
+
+				if [ $time -lt 3600 ];
+				then
+					project_string="@$((($time/60)%60))min"
+				else
+					project_string="@$(($time/3600))h$((($time/60)%60))"
+				fi
+
+				# if we have an issue id then write a ref, else just dump the raw time in the job.
+				if [ "$TIMEKEEPER_ISSUE_ID" != "" ];
+				then
+					timekeeper_string="refs #$TIMEKEEPER_ISSUE_ID $elapsed_string"
+
+					# do we want to close the issue as well?
+					if [ "$status" == "completed" ];
+					then
+						timekeeper_string="$timekeeper_string and closes #$TIMEKEEPER_ISSUE_ID"
+					fi
+
+				elif [ "$TIMEKEEPER_OUTPUT_RAW_TIMESTAMP" == "1" ]
+				then
+					timekeeper_string="($project.$job#$time#$elapsed_time)"
+				else
+					timekeeper_string="($project.$job - total: $project_string commit: $elapsed_string)"
+				fi
+
+				break
+			fi
+		done < "$TIMEKEEPER_TIMESHEET"
+	fi
+}
+
+#---------------------------------------------------------------------------------
+# read_dir_file
+#
+# This function will read the dir file and create the timesheet string.
+#---------------------------------------------------------------------------------
+function read_dir_file()
+{
+	if [ "$TIMEKEEPER_DIRECTORY" == "" ];
+	then
+		# check for local directory
+		if [[ -d ".timekeeper" ]];
+		then
+			TIMEKEEPER_DIRECTORY=".timekeeper"
+		else
+			# if local not found the search for global 
+			if [[ -d "$HOME/.timekeeper" ]];
+			then
+				TIMEKEEPER_DIRECTORY="$HOME/.timekeeper"
 			fi
 		fi
-	
+	fi
+
+	# can't update if the directory does not exist.
+	if [ "$TIMEKEEPER_DIRECTORY" != "" ];
+	then
+		# create timekeeper filename
+		TIMEKEEPER_TIMESHEET="$TIMEKEEPER_DIRECTORY/$HOSTNAME:$USER.tmk"
+				
 		# if it's readable/writable - carry on
 		if [[ -w "$TIMEKEEPER_TIMESHEET" && -r "$TIMEKEEPER_TIMESHEET" ]];
 		then
-			# default on -for files that don't have section headers
-			current_section=1
-
 			# read in the timesheet file
 			while IFS=, read -r project job start time last_commit status note;
 			do
-				# find the current section for the file
-				if [ "${project:0:1}" == "[" ] && [ "${project:0-1}" == "]" ]
-				then
-					line=${project:1:${#project}-2}
-					current_section=0
-
-					if [ "${line#*:}" == "$USER" ] && [ "${line%:*}" == "$HOSTNAME" ]
-					then
-						current_section=1
-					fi
-
-				elif [ "$current_section" == "1" ] && [ "$current_project" == "$project" ] && [ "$current_job" == "$job" ]
+				if [ "$current_project" == "$project" ] && [ "$current_job" == "$job" ]
 				then
 					# Ok, we found the item that we want
-
 					elapsed_time=$(($time-$last_commit))
 
 					if [ $elapsed_time -lt 3600 ];
@@ -171,6 +227,62 @@ then
 					break
 				fi
 			done < "$TIMEKEEPER_TIMESHEET"
+		fi
+	fi
+}
+
+
+if [ "$TIMEKEEPER_DONT_TRACK" != "1" ];
+then
+	timekeeper_string=''
+
+	function TimeKeeper_GetTimeString()
+	{
+		# retrieve the current job name from the git repository
+		current_project=$(basename `git rev-parse --show-toplevel`)
+		current_job=`git rev-parse --abbrev-ref HEAD`
+		
+		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ];
+		then
+			git describe --abbrev=0 2> /dev/null
+
+			if [ $? -eq 0 ]
+			then
+				current_tag=`git describe --abbrev=0`
+				current_tag=${current_tag#$TIMEKEEPER_TAG_PREFIX}
+					
+				if [ "$current_tag" != "" ]
+				then
+					current_job=$current_tag
+				fi
+			fi
+		fi
+		
+		# if the user has not specified a issue id, then check to see if the
+		# tag has one, if not check to see if the branch has one. Use the first
+		# one that is found.
+		if [ "$TIMEKEEPER_ISSUE_ID" == "" ];
+		then
+			TIMEKEEPER_ISSUE_ID=${current_job/${current_job%%#[0-9]*}/}
+			TIMEKEEPER_ISSUE_ID=${TIMEKEEPER_ISSUE_ID:1}
+		fi
+
+		# detect what sort of file needs updating
+		if [[ "$TIMEKEEPER_DIRECTORY" == "" ]]
+		then
+			TIMEKEEPER_DIRECTORY=".timekeeper"
+		fi
+
+		if [ "$TIMEKEEPER_USE_FLAT_FILE" == "1" ];
+		then
+			read_flat_file
+
+		elif [[ -d $TIMEKEEPER_DIRECTORY ]];
+		then
+			read_dir_file
+		
+		else
+			read_flat_file
 		fi
 	}
 
