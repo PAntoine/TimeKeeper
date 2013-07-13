@@ -9,7 +9,7 @@
                                                       `--'                  ~
                                                                             ~
 Author:	  Peter Antoine
-Date:     July 5, 2013
+Date:     July 13, 2013
 Version:  3.0.0
 HomePage: https://github.com/PAntoine/TimeKeeper
 
@@ -182,6 +182,13 @@ Any issue with notes will have a '§' after then title.
 There is only three function that are useful outside of the TimeKeeper and
 these functions are:
 
+TimeKeeper_CreateTimesheet()						*TimeKeeper_CreateTimesheet()*
+		This function simply creates  a timekeeper timesheet in the current
+		directory. It will ask for the name of the timekeeper file. If you
+		change it from the default you should change the globals and the
+		environment variable to match or the git plugins and the TimeKeeper
+		system will not find the timesheet.
+
 TimeKeeper_StartTracking()							*TimeKeeper_StartTracking()*
 		This function simple starts the tracking. It will handle all the file
 		creation and set that is required. This function should only be called
@@ -275,6 +282,7 @@ g:TimeKeeperUseLocal	- deprecated 				*g:TimeKeeperUseLocal*
 
 g:TimeKeeperFileName								*g:TimeKeeperFileName*
 		The filename that the timesheet will be saved to. [(.)timekeeper.tmk] 
+		If using directory files then it is used as the directory name. [.timekeeper]
 
 g:TimeKeeperUseGitProjectBranch						*g:TimeKeeperUseGitProjectBranch*
 		If vim is in a git repository use the directory name as the project name
@@ -305,6 +313,11 @@ a local file. [1]
 
 g:TimeKeeperDontChangeProjectWhenLocal				*g:TimeKeeperDontChangeProjectWhenLocal*
 Do not change project when the current instance is local. [1]
+
+g:TimeKeeperCreateIfNotExists						*g:TimeKeeperCreateIfNotExists*
+If the timesheet does not exist create it.
+If using flat files then this defaults to [1]
+Else it defaults to [0]
 
 g:TimeKeeperStartOnLoad								*g:TimeKeeperStartOnLoad*
 Start the TimeKeeper on vim load, this should not be done before the default file has
@@ -503,6 +516,6 @@ Version   Author Date        Changes
                              Improved server detection.
 2.3.0     PA     xx.05.2013  Removed debug.
                              Added nospell to syntax lines.
-3.0.0     PA     05.07.2013  Added directory formatted files.
+3.0.0     PA     13.07.2013  Added directory formatted files.
 			
 vim: ts=4 ft=help tw=78

@@ -58,6 +58,13 @@ This will use a directory structure for the timekeeper files for user/machines t
 timekeeper files to avoid merges when committed to an SCM. Also, some of the following goodness
 is going to be only available to directory file users.
 
+If you are using directory files, as I would recommend, then when moving into a new directory it
+does not request that the timesheet is created automatically. But, you can simply call:
+
+	:call TimeKeeper_CreateTimesheet()
+
+The will create the timesheet in the local directory.
+
 ## Important Changes ##
 
 - File Format

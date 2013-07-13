@@ -51,7 +51,9 @@
 "                                            will create a file at the cwd of the
 "                                            editor. [+clientsever:0, else 1]
 "           g:TimeKeeperFileName             The filename that the timesheet will be
-"                                            saved to. [(.)timekeeper.tmk] 
+"                                            saved to. [(.)timekeeper.tmk]
+"                                            Unless you are using directory files then
+"                                            it defaults to [.timekeeper]
 "           g:TimeKeeperUseGitNotes          If this flag is set then timekeeper will
 "                                            create a git note in the current branch
 "                                            if the editor is in a git repository. It
@@ -81,12 +83,15 @@
 "                                            Do not change project when the current instance
 "                                            is local. [1]
 "			g:TimeKeeperUseFlatFile			 Use the old formatted flat file. If this is
-"                                            set to zero then use the newer dirtory format that
+"                                            set to zero then use the newer directory format that
 "                                            works better with SCM as the different files are
 "                                            only changed by different uses on different machines
 "                                            so that it should be immune to merge conflicts. 
 "                                            This defaults to on as it makes it backwards
 "                                            compatible. [1]
+"			g:TimeKeeperCreateIfNotExists	 If the timesheet does not exist create it.
+"											 If using flat files then this defaults to [1]
+"                                            Else it defaults to [0]
 "           g:TimeKeeperStartOnLoad          Start the TimeKeeper on vim load, this 
 "                                            should not be done before the default file
 "                                            has been created by running the start. [0]
@@ -165,6 +170,10 @@ endif
 	endif
 
 	if g:TimeKeeperUseFlatFile == 1
+		if !exists("g:TimeKeeperCreateIfNotExists")		" Create the files if they dont exist.
+			let g:TimeKeeperCreateIfNotExists = 1
+		endif
+
 		if !exists("g:TimeKeeperFileName")					" What file should the TimeKeeper store the timesheet in.
 			if filewritable('.timekeeper.tmk') || filereadable('.timekeeper.tmk')	" If the file exists try to use, it will fail later.
 				let g:TimeKeeperFileName = '.timekeeper.tmk'
@@ -181,6 +190,10 @@ endif
 			endif
 		endif
 	else
+		if !exists("g:TimeKeeperCreateIfNotExists")		" Don't create the files if they dont exist.
+			let g:TimeKeeperCreateIfNotExists = 0
+		endif
+
 		if !exists("g:TimeKeeperFileName")					" has the user set the directory for timekeeper
 			if isdirectory( $HOME . '/' . ".timekeeper")	" Ok, there is a directory in the root, user global.
 				let s:using_local_file = 0
@@ -292,6 +305,24 @@ endif
 	augroup TimeKeeper						" Create the group to hold all the events.
 "																			}}}
 " PUBLIC FUNCTIONS
+" FUNCTION: TimeKeeper_CreateTimesheet()  									{{{
+"  
+" This function will create a timesheet and start tracking on it.
+"
+" vars:
+"      none.
+" returns:
+"      nothing.
+"
+function! TimeKeeper_CreateTimesheet()
+	if s:TimeKeeperIsTracking == 1
+		call s:TimeKeeper_ReportError("Already tracking, cannot create a new timesheet")
+	else
+		let g:TimeKeeperCreateIfNotExists = 1
+		call TimeKeeper_StartTracking()
+	endif
+endfunction
+"																			}}}
 " FUNCTION: TimeKeeper_StopTracking() 						 				{{{
 "  
 " This function will stop the TimeKeeper tracking the users time.
@@ -322,37 +353,37 @@ endfunction
 "      nothing.
 "
 function! TimeKeeper_StartTracking()
-	call s:TimeKeeper_LoadTimeSheet()
+	if s:TimeKeeper_LoadTimeSheet() == 1
+		call s:TimeKeeper_FindServer()
+		
+		let s:TimeKeeperIsTracking = 1
 
-	call s:TimeKeeper_FindServer()
-	
-	let s:TimeKeeperIsTracking = 1
-
-	if g:TimeKeeperUseGitProjectBranch
-		call s:TimeKeeper_SetJobNameFromGitRepository()
-	endif
-
-	if s:current_project == ''
-		let s:current_project = g:TimeKeeperDefaultProject
-	endif
-
-	if s:current_job == ''
-		let s:current_job = g:TimeKeeperDefaultJob
-	endif
-
-	call s:TimeKeeper_AddJob(s:current_project,s:current_job)
-
-	let s:start_tracking_time = s:project_list[s:current_project].job[s:current_job].total_time
-
-	au TimeKeeper CursorHoldI * nested call s:TimeKeeper_UserStoppedTyping()
-	au TimeKeeper CursorHold  * nested call s:TimeKeeper_UserStoppedTyping()
-	au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
-	au TimeKeeper VimLeave    * nested call TimeKeeper_StopTracking()
-
-	" do we want to know when the current directory is changing.
-	if s:using_local_file == 0 || g:TimeKeeperDontChangeProjectWhenLocal != 1
 		if g:TimeKeeperUseGitProjectBranch
-			au TimeKeeper CmdwinLeave : call s:TimeKeeper_CheckForCWDChange()
+			call s:TimeKeeper_SetJobNameFromGitRepository()
+		endif
+
+		if s:current_project == ''
+			let s:current_project = g:TimeKeeperDefaultProject
+		endif
+
+		if s:current_job == ''
+			let s:current_job = g:TimeKeeperDefaultJob
+		endif
+
+		call s:TimeKeeper_AddJob(s:current_project,s:current_job)
+
+		let s:start_tracking_time = s:project_list[s:current_project].job[s:current_job].total_time
+
+		au TimeKeeper CursorHoldI * nested call s:TimeKeeper_UserStoppedTyping()
+		au TimeKeeper CursorHold  * nested call s:TimeKeeper_UserStoppedTyping()
+		au TimeKeeper FocusLost   * nested call s:TimeKeeper_UserStoppedTyping()
+		au TimeKeeper VimLeave    * nested call TimeKeeper_StopTracking()
+
+		" do we want to know when the current directory is changing.
+		if s:using_local_file == 0 || g:TimeKeeperDontChangeProjectWhenLocal != 1
+			if g:TimeKeeperUseGitProjectBranch
+				au TimeKeeper CmdwinLeave : call s:TimeKeeper_CheckForCWDChange()
+			endif
 		endif
 	endif
 endfunction
@@ -736,7 +767,7 @@ function! TimeKeeper_UpdateJob(project_name, job_name, time, force)
 				try 
 					call remote_expr(s:current_server,job_string)
 				catch /E449/
-					TimeKeeper_ReportError("can't update the remote server")
+					call s:TimeKeeper_ReportError("can't update the remote server")
 				endtry
 			endif
 		endtry
@@ -1317,25 +1348,26 @@ endfunction
 "	0 - If the database failed to load.
 "
 function! s:TimeKeeper_LoadTimeSheet()
-	let result = 0
+	let result = 1
 	
 	if g:TimeKeeperUseFlatFile == 1
 		if empty(glob(g:TimeKeeperFileName))
-			call s:TimeKeeper_RequestCreate(0)
+			let result = s:TimeKeeper_RequestCreate(0)
 		else
-			call s:TimeKeeper_LoadFlatFile()
+			let result = s:TimeKeeper_LoadFlatFile()
 		endif
 
 		let s:file_update_time = getftime(g:TimeKeeperFileName)
 	else
 		if isdirectory(g:TimeKeeperFileName)
-			call s:TimeKeeper_LoadDirectoryFile()
+			let result = s:TimeKeeper_LoadDirectoryFile()
 		else
 			if !empty(glob(g:TimeKeeperFileName))
 				call s:TimeKeeper_ReportError("Timesheet:" . g:TimeKeeperFileName . " points to a file and not a directory.")
+				let result = 0
 			else
 				" Ok, create the timekeeper file
-				call s:TimeKeeper_RequestCreate(1)
+				let result = s:TimeKeeper_RequestCreate(1)
 			endif
 		endif
 	endif
@@ -1517,17 +1549,24 @@ endfunction
 "	nothing
 "
 function! s:TimeKeeper_RequestCreate(directory)
-	
-	let g:TimeKeeperFileName = input("Please supply TimeKeeper timesheet filename: ",g:TimeKeeperFileName)
+	let result = 0
 
-	if ( g:TimeKeeperFileName != '' )
-		" create the default job
-		call s:TimeKeeper_AddJob(g:TimeKeeperDefaultProject,g:TimeKeeperDefaultJob)
-		
-		" create the current job
-		call s:TimeKeeper_AddJob(s:current_project,s:current_job)
-		call TimeKeeper_SaveTimeSheet(1)
+	if g:TimeKeeperCreateIfNotExists == 1
+		let g:TimeKeeperFileName = input("Please supply TimeKeeper timesheet filename: ",g:TimeKeeperFileName)
+		echo ""
+
+		if ( g:TimeKeeperFileName != '' )
+			" create the default job
+			call s:TimeKeeper_AddJob(g:TimeKeeperDefaultProject,g:TimeKeeperDefaultJob)
+			
+			" create the current job
+			call s:TimeKeeper_AddJob(s:current_project,s:current_job)
+			call TimeKeeper_SaveTimeSheet(1)
+			let result = 1
+		endif
 	endif
+
+	return result
 endfunction
 "																				}}}
 " FUNCTION: s:TimeKeeper_ConvertTimeStringToSeconds()						{{{
