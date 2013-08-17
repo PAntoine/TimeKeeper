@@ -542,7 +542,7 @@ function! TimeKeeper_SaveTimeSheet(create)
 		if g:TimeKeeperUseFlatFile == 1
 			let result = s:TimeKeeper_SaveFlatFile(a:create)
 		else
-			let result = s:TimeKeeper_SaveDirFile(a:create)
+			let result = s:TimeKeeper_SaveDirFile(g:TimeKeeperCreateIfNotExists)
 		endif
 	endif
 
@@ -1147,18 +1147,23 @@ function! s:TimeKeeper_SetJobNameFromGitRepository()
 	let s:current_project = substitute(fnamemodify(root,':p:h:h'),fnamemodify(root,':p:h:h:h') . '/','','')
 	
 	if g:TimeKeeperUseAnnotatedTags == 1
-    	let s:current_job = system("git describe --abbrev=0")
-		if len(split(s:current_job,"[\x0a\x0d]")) == 1
-			" ok, remove any newlines
-			let s:current_job = substitute(s:current_job,"[\x0a\x0d]",'','g')
+    	let annotated_tag = system("git describe --abbrev=0")
 
-			if g:TimeKeeperTagPrefix != ''
-				" remove the prefix - if it is found
-				let s:current_job = substitute(s:current_job,'^' . g:TimeKeeperTagPrefix,'','')
+		if v:shell_error == 0
+			s:current_job = annotated_tag
+
+			if len(split(s:current_job,"[\x0a\x0d]")) == 1
+				" ok, remove any newlines
+				let s:current_job = substitute(s:current_job,"[\x0a\x0d]",'','g')
+
+				if g:TimeKeeperTagPrefix != ''
+					" remove the prefix - if it is found
+					let s:current_job = substitute(s:current_job,'^' . g:TimeKeeperTagPrefix,'','')
+				endif
+			else
+				" if more than on line then it is an error message
+				let s:current_job = ''
 			endif
-		else
-			" if more than on line then it is an error message
-			let s:current_job = ''
 		endif
 	endif
 
@@ -1167,13 +1172,15 @@ function! s:TimeKeeper_SetJobNameFromGitRepository()
 		let lines = split(system("git branch 2> /dev/null"),"[\x0a\x0d]")
 
 		" find the current branch
-		for line in lines
-			if line[0] == '*'
-				" remove the indicator
-				let branch = strpart(line,2)
-				break
-			endif
-		endfor
+		if len(lines) > 0
+			for line in lines
+				if line[0] == '*'
+					" remove the indicator
+					let branch = strpart(line,2)
+					break
+				endif
+			endfor
+		endif
 
 		if branch != ''
 			let s:current_job = substitute(branch, '\n', '', 'g')
@@ -1359,10 +1366,12 @@ function! s:TimeKeeper_LoadTimeSheet()
 
 		let s:file_update_time = getftime(g:TimeKeeperFileName)
 	else
-		if isdirectory(g:TimeKeeperFileName)
+		let filename = g:TimeKeeperFileName . '/' . hostname() . ':' . $USER . '.tmk' 
+		
+		if isdirectory(g:TimeKeeperFileName) && !empty(glob(filename))
 			let result = s:TimeKeeper_LoadDirectoryFile()
 		else
-			if !empty(glob(g:TimeKeeperFileName))
+			if !isdirectory(g:TimeKeeperFileName) && !empty(glob(filename))
 				call s:TimeKeeper_ReportError("Timesheet:" . g:TimeKeeperFileName . " points to a file and not a directory.")
 				let result = 0
 			else
@@ -1429,9 +1438,7 @@ function! s:TimeKeeper_SaveDirFile(create)
 	let filename = g:TimeKeeperFileName . '/' . hostname() . ':' . $USER . '.tmk' 
 
 	" check that the directory exists?
-	if !a:create && !isdirectory(g:TimeKeeperFileName)
-		call s:TimeKeeper_ReportError("time sheet directory is not a directory: " . g:TimeKeeperFileName)
-	else
+	if a:create || isdirectory(g:TimeKeeperFileName)
 		" check to make sure the timesheet has not been updated elsewhere (i.e. the githooks)
 		if s:file_update_time < getftime(filename)
 			call s:TimeKeeper_LoadDirectoryFile()
@@ -1468,7 +1475,11 @@ function! s:TimeKeeper_SaveDirFile(create)
 		" update the times
 		let s:last_update_time = localtime()
 		let s:file_update_time = getftime(filename)
+
+		let result = 1
 	endif
+
+	return result
 endfunction
 "																			}}}
 " FUNCTION: s:TimeKeeper_SaveFlatFile(create)  								{{{
@@ -1551,19 +1562,19 @@ endfunction
 function! s:TimeKeeper_RequestCreate(directory)
 	let result = 0
 
-	if g:TimeKeeperCreateIfNotExists == 1
+	if g:TimeKeeperUseFlatFile == 1
 		let g:TimeKeeperFileName = input("Please supply TimeKeeper timesheet filename: ",g:TimeKeeperFileName)
-		echo ""
+	endif
 
-		if ( g:TimeKeeperFileName != '' )
-			" create the default job
-			call s:TimeKeeper_AddJob(g:TimeKeeperDefaultProject,g:TimeKeeperDefaultJob)
-			
-			" create the current job
-			call s:TimeKeeper_AddJob(s:current_project,s:current_job)
-			call TimeKeeper_SaveTimeSheet(1)
-			let result = 1
-		endif
+	echo ""
+
+	if ( g:TimeKeeperFileName != '' )
+		" create the default job
+		call s:TimeKeeper_AddJob(g:TimeKeeperDefaultProject,g:TimeKeeperDefaultJob)
+		
+		" create the current job
+		call s:TimeKeeper_AddJob(s:current_project,s:current_job)
+		let result = TimeKeeper_SaveTimeSheet(g:TimeKeeperCreateIfNotExists)
 	endif
 
 	return result

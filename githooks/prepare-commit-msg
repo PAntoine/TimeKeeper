@@ -244,7 +244,7 @@ then
 		
 		if [ "$TIMEKEEPER_USE_ANNOTATED_TAG" == "1" ];
 		then
-			git describe --abbrev=0 2> /dev/null
+			git describe --abbrev=0 > /dev/null 2>&1
 
 			if [ $? -eq 0 ]
 			then
@@ -301,7 +301,5 @@ then
 		echo "$timekeeper_string" >> "$1" ;;
 	  *)  ;;
 	esac
-
-	echo $timekeeper_string
 fi
 
